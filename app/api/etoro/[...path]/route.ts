@@ -37,6 +37,9 @@ export async function GET(
       headers['x-user-key'] = ETORO_USER_KEY;
     }
 
+    // Log if API keys are present (don't log actual keys for security)
+    console.log(`[eToro API Route] Request to ${endpoint}, API key present: ${!!ETORO_API_KEY}, User key present: ${!!ETORO_USER_KEY}`);
+
     const response = await fetch(etoroUrl.toString(), {
       method: 'GET',
       headers,
@@ -51,6 +54,12 @@ export async function GET(
     }
 
     const data = await response.json();
+    
+    // Log first item to debug field availability
+    if (data.items?.[0] && endpoint.includes('search')) {
+      console.log(`[eToro API Route] First result keys: ${Object.keys(data.items[0]).join(', ')}`);
+    }
+    
     return NextResponse.json(data);
   } catch (error) {
     console.error('[eToro API Route] Error:', error);

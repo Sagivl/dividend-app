@@ -13,7 +13,7 @@ const HighlightMatch = ({ text, highlight }) => {
   return (
     <span className="truncate">
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        part.toLowerCase() === highlight.toLowerCase() ? (
           <span key={i} className="text-green-400 font-bold bg-green-900/30 rounded-[3px] px-0.5">
             {part}
           </span>

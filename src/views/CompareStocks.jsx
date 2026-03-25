@@ -141,10 +141,11 @@ export default function CompareStocks() {
         stockToAdd = allStocks.find(s => s.ticker?.toLowerCase() === ticker.toLowerCase());
       } catch (error) {
         console.error("Error finding stock:", error);
-      } finally {
-        setIsLoading(false);
       }
     }
+    
+    // Always reset loading state
+    setIsLoading(false);
     
     // Ensure the stock is a dividend stock before adding
     if (stockToAdd && stockToAdd.dividend_yield && parseFloat(stockToAdd.dividend_yield) > 0) {

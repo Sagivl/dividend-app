@@ -108,6 +108,9 @@ const StockSearch = ({ onSearch, isLoading, setIsLoading, stocks }) => {
             .slice(0, 5);
           
           setEtoroResults(newResults);
+        } else {
+          // Clear stale results if response format is unexpected
+          setEtoroResults([]);
         }
       } catch (error) {
         console.error("Error fetching eToro suggestions:", error);
@@ -163,6 +166,29 @@ const StockSearch = ({ onSearch, isLoading, setIsLoading, stocks }) => {
     const term = (searchTerm || query).trim();
     if (!term || isLoading) return;
     
+    // Try to find a matching result to get the actual ticker
+    let tickerToSearch = term;
+    const termLower = term.toLowerCase();
+    
+    // Check live results first (saved stocks)
+    const matchedLive = liveResults.find(s => 
+      s.ticker?.toLowerCase() === termLower ||
+      s.name?.toLowerCase().includes(termLower)
+    );
+    
+    // Check eToro results  
+    const matchedEtoro = etoroResults.find(s => 
+      s.ticker?.toLowerCase() === termLower ||
+      s.name?.toLowerCase().includes(termLower)
+    );
+    
+    // Prefer the matched ticker over the raw search term
+    if (matchedLive?.ticker) {
+      tickerToSearch = matchedLive.ticker;
+    } else if (matchedEtoro?.ticker) {
+      tickerToSearch = matchedEtoro.ticker;
+    }
+    
     setIsLoading(true);
     setQuery("");
     setLiveResults([]);
@@ -175,10 +201,10 @@ const StockSearch = ({ onSearch, isLoading, setIsLoading, stocks }) => {
     }
     
     // Save to history asynchronously
-    saveToHistory(term);
+    saveToHistory(tickerToSearch);
     
     // Call search immediately without waiting
-    onSearch(term);
+    onSearch(tickerToSearch);
   };
   
   const handleHistoryClick = (historyItem) => {
@@ -237,27 +263,8 @@ const StockSearch = ({ onSearch, isLoading, setIsLoading, stocks }) => {
   const handleAddNewClick = () => {
     if (isLoading || !query.trim()) return;
     
-    const ticker = query.trim();
-    
-    // Clear the search UI immediately
-    setQuery("");
-    setLiveResults([]);
-    setEtoroResults([]);
-    setShowHistory(false);
-    
-    // Blur the input field
-    if (inputRef.current) {
-      inputRef.current.blur();
-    }
-    
-    // Set loading and directly call the search handler
-    setIsLoading(true);
-    
-    // Save to history asynchronously
-    saveToHistory(ticker);
-    
-    // Call search immediately without waiting
-    onSearch(ticker);
+    // Use executeSearch to get proper ticker resolution
+    executeSearch(query.trim());
   };
 
   const handleSubmit = (e) => {
