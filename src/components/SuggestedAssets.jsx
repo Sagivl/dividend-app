@@ -141,7 +141,6 @@ const MarketCapDisplay = ({ value, showTooltip = true, className = "" }) => {
 };
 
 export default function SuggestedAssets({ stocks = [], onRefresh }) {
-  const navigate = useNavigate();
   const [suggestedStocks, setSuggestedStocks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
