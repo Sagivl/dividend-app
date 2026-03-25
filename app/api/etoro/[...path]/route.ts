@@ -92,19 +92,28 @@ export async function POST(
     
     const body = await request.json().catch(() => null);
     
+    // Determine which base URL to use
+    const isSapi = endpoint.startsWith('/sapi/');
+    const baseUrl = isSapi ? ETORO_SAPI : ETORO_PUBLIC_API;
+    const actualEndpoint = isSapi ? endpoint.replace('/sapi', '') : endpoint;
+    
     // Build the eToro URL
-    const etoroUrl = new URL(`${ETORO_BASE_URL}${endpoint}`);
+    const etoroUrl = new URL(`${baseUrl}${actualEndpoint}`);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'x-request-id': randomUUID(),
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'application/json',
     };
 
-    if (ETORO_API_KEY) {
-      headers['x-api-key'] = ETORO_API_KEY;
-    }
-    if (ETORO_USER_KEY) {
-      headers['x-user-key'] = ETORO_USER_KEY;
+    if (!isSapi) {
+      if (ETORO_API_KEY) {
+        headers['x-api-key'] = ETORO_API_KEY;
+      }
+      if (ETORO_USER_KEY) {
+        headers['x-user-key'] = ETORO_USER_KEY;
+      }
     }
 
     const response = await fetch(etoroUrl.toString(), {

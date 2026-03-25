@@ -15,32 +15,41 @@ import NewsSentiment from "./NewsSentiment";
 import AnalystRecommendations from "./AnalystRecommendations";
 import FinancialCharts from "./FinancialCharts";
 
-// InfoTooltip component (reusable)
-const InfoTooltip = ({ explanation }) => (
-  <TooltipProvider>
-    <Tooltip delayDuration={100}>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
-          style={{ minWidth: '24px', minHeight: '24px' }}
+// InfoTooltip component (reusable) - supports both hover (desktop) and click (mobile)
+const InfoTooltip = ({ explanation }) => {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen((prev) => !prev);
+            }}
+            className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
+            style={{ minWidth: '24px', minHeight: '24px' }}
+          >
+            <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          align="center"
+          className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
+          onPointerDownOutside={() => setOpen(false)}
+          sideOffset={5}
+          collisionPadding={10}
         >
-          <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        align="center"
-        className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        sideOffset={5}
-        collisionPadding={10}
-      >
-        <p>{explanation}</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-);
+          <p>{explanation}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 // New MarketCapDisplay component for consistent formatting and tooltip inclusion
 const MarketCapDisplay = ({ value, className, currency = "USD", showTooltip = false }) => {

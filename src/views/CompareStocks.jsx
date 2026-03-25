@@ -11,29 +11,39 @@ import StockSearch from "../components/StockSearch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import MarketCapDisplay from "../components/MarketCapDisplay"; // New import for MarketCapDisplay
 
-// MetricTooltip component definition (remains unchanged)
-const MetricTooltip = ({ explanation }) => (
-  <TooltipProvider>
-    <Tooltip delayDuration={100}>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
-          style={{ minWidth: '24px', minHeight: '24px' }}
+// MetricTooltip component definition - supports both hover (desktop) and click (mobile)
+const MetricTooltip = ({ explanation }) => {
+  const [open, setOpen] = React.useState(false);
+  
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen((prev) => !prev);
+            }}
+            className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
+            style={{ minWidth: '24px', minHeight: '24px' }}
+          >
+            <InfoIcon className="h-4 w-4 text-slate-400 hover:text-slate-300" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent 
+          className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
+          onPointerDownOutside={() => setOpen(false)}
+          sideOffset={5}
+          collisionPadding={10}
         >
-          <InfoIcon className="h-4 w-4 text-slate-400 hover:text-slate-300" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent 
-        className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-        sideOffset={5}
-        collisionPadding={10}
-      >
-        <p>{explanation}</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-);
+          <p>{explanation}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 const metricExplanations = {
   dividend_yield: "Annual dividend per share divided by the stock's current price. Higher is generally better.",

@@ -104,6 +104,8 @@ const evaluateStock = (stock, config) => {
  * Expects the 'value' prop to be the actual market capitalization in dollars (e.g., 1,234,567,890).
  */
 const MarketCapDisplay = ({ value, showTooltip = true, className = "" }) => {
+  const [open, setOpen] = useState(false);
+
   if (value === null || value === undefined || value === 0 || isNaN(value)) {
     return <span className={className}>N/A</span>;
   }
@@ -125,11 +127,24 @@ const MarketCapDisplay = ({ value, showTooltip = true, className = "" }) => {
   if (showTooltip) {
     return (
       <TooltipProvider>
-        <Tooltip>
+        <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
           <TooltipTrigger asChild>
-            <span className={className}>{formattedValue}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen((prev) => !prev);
+              }}
+              className={`${className} cursor-help touch-manipulation`}
+            >
+              {formattedValue}
+            </button>
           </TooltipTrigger>
-          <TooltipContent className="text-xs bg-slate-700 text-slate-200 border-slate-600">
+          <TooltipContent 
+            className="text-xs bg-slate-700 text-slate-200 border-slate-600"
+            onPointerDownOutside={() => setOpen(false)}
+          >
             {`Market Cap: $${actualValue.toLocaleString()}`}
           </TooltipContent>
         </Tooltip>

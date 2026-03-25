@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -14,6 +14,7 @@ const MarketCapDisplay = ({
   showCurrency = true,
   label = "Market Cap" // Add label prop with a default
 }) => {
+  const [open, setOpen] = useState(false);
   // Handle null/undefined/zero values
   if (value === null || value === undefined || value === 0 || value === "") {
     return <span className={className}>N/A</span>;
@@ -82,12 +83,16 @@ const MarketCapDisplay = ({
   if (showTooltip) {
     return (
       <TooltipProvider>
-        <Tooltip delayDuration={100}>
+        <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
           <TooltipTrigger asChild>
             <button 
               type="button"
-              className="cursor-help inline-flex items-center p-0.5 rounded hover:bg-slate-600/30 transition-colors"
-              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen((prev) => !prev);
+              }}
+              className="cursor-help inline-flex items-center p-0.5 rounded hover:bg-slate-600/30 transition-colors touch-manipulation"
             >
               {content}
             </button>
@@ -96,7 +101,7 @@ const MarketCapDisplay = ({
             side="top"
             align="center"
             className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-            onPointerDownOutside={(e) => e.preventDefault()}
+            onPointerDownOutside={() => setOpen(false)}
           >
             <p>{tooltipText}</p>
           </TooltipContent>

@@ -363,30 +363,42 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
     await saveStockData(data);
   };
 
-  const renderTooltip = (text) => (
-    <TooltipProvider>
-      <Tooltip delayDuration={100}>
-        <TooltipTrigger asChild>
-          <button 
-            type="button"
-            className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
-            style={{ minWidth: '24px', minHeight: '24px' }}
+  const MobileTooltip = ({ text }) => {
+    const [open, setOpen] = useState(false);
+    
+    return (
+      <TooltipProvider>
+        <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+          <TooltipTrigger asChild>
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen((prev) => !prev);
+              }}
+              className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
+              style={{ minWidth: '24px', minHeight: '24px' }}
+            >
+              <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            align="center"
+            className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
+            onPointerDownOutside={() => setOpen(false)}
+            sideOffset={5}
+            collisionPadding={10}
           >
-            <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent
-          side="top"
-          align="center"
-          className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-          sideOffset={5}
-          collisionPadding={10}
-        >
-          <p>{text}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+            <p>{text}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  const renderTooltip = (text) => <MobileTooltip text={text} />;
 
   const renderField = (id, label, description = null, type = "text") => (
     <div className="space-y-1 sm:space-y-2">

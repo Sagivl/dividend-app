@@ -14,6 +14,45 @@ import {
   ResponsiveContainer
 } from "recharts";
 
+// Chart info tooltip component - supports both hover (desktop) and click (mobile)
+const ChartInfoTooltip = ({ title, explanation }) => {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <div className="flex items-center">
+      <span className="truncate">{title}</span>
+      <TooltipProvider>
+        <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+          <TooltipTrigger asChild>
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen((prev) => !prev);
+              }}
+              className="inline-flex items-center justify-center ml-2 p-0.5 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
+              style={{ minWidth: '24px', minHeight: '24px' }}
+            >
+              <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            align="center"
+            className="max-w-xs text-sm p-3 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
+            onPointerDownOutside={() => setOpen(false)}
+            sideOffset={5}
+            collisionPadding={10}
+          >
+            <p>{explanation}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+};
+
 const FinancialCharts = ({ stock, chartType = "all" }) => {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -221,34 +260,10 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
     <Card className="bg-slate-800 border border-slate-700">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg sm:text-xl font-bold text-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="flex items-center">
-            <span className="truncate">{stock?.ticker || stock?.name || 'Stock'} Earnings</span>
-            <TooltipProvider>
-              <Tooltip delayDuration={100}>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button"
-                    className="inline-flex items-center justify-center ml-2 p-0.5 rounded-full hover:bg-slate-600/50 transition-colors"
-                    onTouchStart={(e) => e.stopPropagation()}
-                  >
-                    <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  align="center"
-                  className="max-w-xs text-sm p-3 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-                  sideOffset={5}
-                  collisionPadding={10}
-                >
-                  <p>
-                    This chart shows quarterly earnings per share (EPS) performance comparing actual reported earnings against analyst expectations. 
-                    Green indicates the company beat expectations, while red indicates a miss.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          <ChartInfoTooltip 
+            title={`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
+            explanation="This chart shows quarterly earnings per share (EPS) performance comparing actual reported earnings against analyst expectations. Green indicates the company beat expectations, while red indicates a miss."
+          />
           {hasEPSSurpriseHistory && (
             <div className="flex gap-2 text-xs sm:text-sm">
               <Badge variant="outline" className="bg-green-900/20 text-green-300 border-green-600 flex items-center gap-1">
@@ -397,34 +412,10 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
       <Card className="bg-slate-800 border border-slate-700">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg sm:text-xl font-bold text-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center">
-              <span className="truncate">{stock?.ticker || stock?.name || 'Stock'} Earnings</span>
-              <TooltipProvider>
-                <Tooltip delayDuration={100}>
-                  <TooltipTrigger asChild>
-                    <button 
-                      type="button"
-                      className="inline-flex items-center justify-center ml-2 p-0.5 rounded-full hover:bg-slate-600/50 transition-colors"
-                      onTouchStart={(e) => e.stopPropagation()}
-                    >
-                      <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    align="center"
-                    className="max-w-xs text-sm p-3 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-                    sideOffset={5}
-                    collisionPadding={10}
-                  >
-                    <p>
-                      Earnings Per Share (EPS) indicates company profitability per outstanding share.
-                      Higher EPS suggests stronger profitability.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+            <ChartInfoTooltip 
+              title={`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
+              explanation="Earnings Per Share (EPS) indicates company profitability per outstanding share. Higher EPS suggests stronger profitability."
+            />
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
@@ -530,34 +521,10 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
     <Card className="bg-slate-800 border border-slate-700">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg sm:text-xl font-bold text-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="flex items-center">
-            <span className="truncate">{stock?.ticker || stock?.name || 'Stock'} Earnings</span>
-            <TooltipProvider>
-              <Tooltip delayDuration={100}>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button"
-                    className="inline-flex items-center justify-center ml-2 p-0.5 rounded-full hover:bg-slate-600/50 transition-colors"
-                    onTouchStart={(e) => e.stopPropagation()}
-                  >
-                    <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  align="center"
-                  className="max-w-xs text-sm p-3 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-                  sideOffset={5}
-                  collisionPadding={10}
-                >
-                  <p>
-                    This chart shows quarterly earnings per share (EPS) trend. 
-                    EPS indicates company profitability per outstanding share. Rising EPS suggests improving profitability.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          <ChartInfoTooltip 
+            title={`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
+            explanation="This chart shows quarterly earnings per share (EPS) trend. EPS indicates company profitability per outstanding share. Rising EPS suggests improving profitability."
+          />
           {latestEps && (
             <div className="flex items-center gap-2 text-sm text-slate-400">
               <span>Latest: <span className="text-emerald-400 font-semibold">${latestEps.eps?.toFixed(2)}</span> ({latestEps.period})</span>
