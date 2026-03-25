@@ -10,6 +10,7 @@ const isAdminEmail = (email) => {
 };
 
 const getStoredUser = () => {
+  if (typeof window === 'undefined') return null;
   try {
     const data = localStorage.getItem(USER_STORAGE_KEY);
     return data ? JSON.parse(data) : null;
@@ -19,6 +20,7 @@ const getStoredUser = () => {
 };
 
 const saveUser = (user) => {
+  if (typeof window === 'undefined') return;
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
 };
 
@@ -68,7 +70,9 @@ export const User = {
   },
 
   async logout() {
-    localStorage.removeItem(USER_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
     return true;
   },
 

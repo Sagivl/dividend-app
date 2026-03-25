@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'dividend_app_stocks';
 
 const getStoredStocks = () => {
+  if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : [];
@@ -10,6 +11,7 @@ const getStoredStocks = () => {
 };
 
 const saveStocks = (stocks) => {
+  if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stocks));
 };
 
