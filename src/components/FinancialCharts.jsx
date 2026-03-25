@@ -1,5 +1,5 @@
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Info, TrendingUp, TrendingDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,14 @@ import {
 } from "recharts";
 
 const FinancialCharts = ({ stock, chartType = "all" }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   // Check if stock has EPS history data
   const hasEPSHistory = useMemo(() => {
     return stock && Array.isArray(stock.eps_history) && stock.eps_history.length > 0;
@@ -116,7 +124,6 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
 
   const CustomizedAxisTick = ({ x, y, payload }) => {
     const dataPoint = epsSurpriseData.find(d => d.period === payload.value);
-    const isMobile = window.innerWidth < 640;
 
     if (!dataPoint) return null;
     const [quarter, year] = dataPoint.period.split(' ');
@@ -220,9 +227,9 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
                   top: 20, 
                   right: 20, 
                   left: 10, 
-                  bottom: window.innerWidth < 640 ? 70 : 80 
+                  bottom: isMobile ? 70 : 80 
                 }}
-                barCategoryGap={epsSurpriseData.length <= 3 ? "40%" : (window.innerWidth < 640 ? "20%" : "30%")}
+                barCategoryGap={epsSurpriseData.length <= 3 ? "40%" : (isMobile ? "20%" : "30%")}
                 barGap={2}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
@@ -234,7 +241,7 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
                   height={80}
                 />
                 <YAxis 
-                  tick={{ fill: '#94A3B8', fontSize: window.innerWidth < 640 ? 11 : 12 }}
+                  tick={{ fill: '#94A3B8', fontSize: isMobile ? 11 : 12 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => `$${value.toFixed(2)}`}
@@ -247,7 +254,7 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
                 <Legend 
                   wrapperStyle={{ 
                     paddingTop: '20px', 
-                    fontSize: window.innerWidth < 640 ? '12px' : '14px' 
+                    fontSize: isMobile ? '12px' : '14px' 
                   }}
                   iconType="circle"
                 />
@@ -256,14 +263,14 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
                   name="Expected EPS"
                   fill="#64748B"
                   radius={[2, 2, 0, 0]}
-                  maxBarSize={epsSurpriseData.length <= 3 ? 60 : (window.innerWidth < 640 ? 25 : 35)}
+                  maxBarSize={epsSurpriseData.length <= 3 ? 60 : (isMobile ? 25 : 35)}
                 />
                 <Bar 
                   dataKey="actual" 
                   name="Actual EPS"
                   fill="#22C55E"
                   radius={[2, 2, 0, 0]}
-                  maxBarSize={epsSurpriseData.length <= 3 ? 60 : (window.innerWidth < 640 ? 25 : 35)}
+                  maxBarSize={epsSurpriseData.length <= 3 ? 60 : (isMobile ? 25 : 35)}
                 />
               </BarChart>
             </ResponsiveContainer>
