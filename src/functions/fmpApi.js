@@ -32,6 +32,14 @@ const WARNING_THRESHOLD = 200;
 
 let _fmpAvailable = null;
 
+// Safe localStorage access helpers
+const isClient = typeof window !== 'undefined';
+const safeGetItem = (key) => isClient ? localStorage.getItem(key) : null;
+const safeSetItem = (key, value) => { if (isClient) localStorage.setItem(key, value); };
+const safeRemoveItem = (key) => { if (isClient) localStorage.removeItem(key); };
+const safeLocalStorageLength = () => isClient ? localStorage.length : 0;
+const safeLocalStorageKey = (i) => isClient ? localStorage.key(i) : null;
+
 function hasFmpApiKey() {
   // Assume available until proven otherwise by server response
   return _fmpAvailable !== false;
@@ -41,18 +49,20 @@ function hasFmpApiKey() {
  * Track API calls and warn when approaching limit
  */
 function trackApiCall() {
+  if (!isClient) return 0;
+  
   const today = new Date().toDateString();
-  const storedDate = localStorage.getItem(API_CALL_DATE_KEY);
+  const storedDate = safeGetItem(API_CALL_DATE_KEY);
   
   let callCount = 0;
   if (storedDate === today) {
-    callCount = parseInt(localStorage.getItem(API_CALL_KEY) || '0', 10);
+    callCount = parseInt(safeGetItem(API_CALL_KEY) || '0', 10);
   } else {
-    localStorage.setItem(API_CALL_DATE_KEY, today);
+    safeSetItem(API_CALL_DATE_KEY, today);
   }
   
   callCount++;
-  localStorage.setItem(API_CALL_KEY, callCount.toString());
+  safeSetItem(API_CALL_KEY, callCount.toString());
   
   if (callCount === WARNING_THRESHOLD) {
     console.warn(`[FMP] WARNING: ${callCount}/${DAILY_LIMIT} API calls used today. ${DAILY_LIMIT - callCount} remaining.`);
@@ -67,14 +77,16 @@ function trackApiCall() {
  * Get current API call count
  */
 export function getApiCallCount() {
+  if (!isClient) return { used: 0, limit: DAILY_LIMIT, remaining: DAILY_LIMIT };
+  
   const today = new Date().toDateString();
-  const storedDate = localStorage.getItem(API_CALL_DATE_KEY);
+  const storedDate = safeGetItem(API_CALL_DATE_KEY);
   
   if (storedDate !== today) {
     return { used: 0, limit: DAILY_LIMIT, remaining: DAILY_LIMIT };
   }
   
-  const used = parseInt(localStorage.getItem(API_CALL_KEY) || '0', 10);
+  const used = parseInt(safeGetItem(API_CALL_KEY) || '0', 10);
   return { used, limit: DAILY_LIMIT, remaining: DAILY_LIMIT - used };
 }
 
@@ -89,9 +101,11 @@ function getFromCache(key, ttl) {
     return memCached.data;
   }
   
+  if (!isClient) return null;
+  
   // Check localStorage
   try {
-    const stored = localStorage.getItem(`fmp_cache_${key}`);
+    const stored = safeGetItem(`fmp_cache_${key}`);
     if (stored) {
       const parsed = JSON.parse(stored);
       if (Date.now() - parsed.timestamp < ttl) {
@@ -101,7 +115,7 @@ function getFromCache(key, ttl) {
         return parsed.data;
       } else {
         // Expired, remove it
-        localStorage.removeItem(`fmp_cache_${key}`);
+        safeRemoveItem(`fmp_cache_${key}`);
       }
     }
   } catch (e) {
@@ -120,14 +134,16 @@ function saveToCache(key, data) {
   // Save to memory
   memoryCache.set(key, cacheEntry);
   
+  if (!isClient) return;
+  
   // Save to localStorage (with error handling for quota)
   try {
-    localStorage.setItem(`fmp_cache_${key}`, JSON.stringify(cacheEntry));
+    safeSetItem(`fmp_cache_${key}`, JSON.stringify(cacheEntry));
   } catch (e) {
     console.warn('[FMP Cache] Storage full, clearing old cache');
     clearOldCache();
     try {
-      localStorage.setItem(`fmp_cache_${key}`, JSON.stringify(cacheEntry));
+      safeSetItem(`fmp_cache_${key}`, JSON.stringify(cacheEntry));
     } catch (e2) {
       console.warn('[FMP Cache] Could not save to storage');
     }
@@ -138,12 +154,14 @@ function saveToCache(key, data) {
  * Clear old cache entries
  */
 function clearOldCache() {
+  if (!isClient) return;
+  
   const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
+  for (let i = 0; i < safeLocalStorageLength(); i++) {
+    const key = safeLocalStorageKey(i);
     if (key?.startsWith('fmp_cache_')) {
       try {
-        const item = JSON.parse(localStorage.getItem(key));
+        const item = JSON.parse(safeGetItem(key));
         if (Date.now() - item.timestamp > CACHE_TTL.fundamentals) {
           keysToRemove.push(key);
         }
@@ -152,7 +170,7 @@ function clearOldCache() {
       }
     }
   }
-  keysToRemove.forEach(key => localStorage.removeItem(key));
+  keysToRemove.forEach(key => safeRemoveItem(key));
 }
 
 /**
@@ -559,13 +577,15 @@ export function invalidateCache(symbol) {
   }
   
   // Clear localStorage cache
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith('fmp_cache_') && key.includes(symbol)) {
-      keysToRemove.push(key);
+  if (isClient) {
+    for (let i = 0; i < safeLocalStorageLength(); i++) {
+      const key = safeLocalStorageKey(i);
+      if (key?.startsWith('fmp_cache_') && key.includes(symbol)) {
+        keysToRemove.push(key);
+      }
     }
+    keysToRemove.forEach(key => safeRemoveItem(key));
   }
-  keysToRemove.forEach(key => localStorage.removeItem(key));
   
   console.log(`[FMP] Cache invalidated for ${symbol}`);
 }
@@ -576,14 +596,16 @@ export function invalidateCache(symbol) {
 export function clearAllCache() {
   memoryCache.clear();
   
+  if (!isClient) return;
+  
   const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
+  for (let i = 0; i < safeLocalStorageLength(); i++) {
+    const key = safeLocalStorageKey(i);
     if (key?.startsWith('fmp_cache_')) {
       keysToRemove.push(key);
     }
   }
-  keysToRemove.forEach(key => localStorage.removeItem(key));
+  keysToRemove.forEach(key => safeRemoveItem(key));
   
   console.log('[FMP] All cache cleared');
 }

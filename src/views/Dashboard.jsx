@@ -59,7 +59,9 @@ export default function Dashboard() {
         preferences.investment_goal,
         preferences.risk_tolerance
       );
-      localStorage.setItem("dividendAssetConfig", JSON.stringify(personalizedConfig));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("dividendAssetConfig", JSON.stringify(personalizedConfig));
+      }
       
       // Update current user state
       const updatedUser = await User.me();

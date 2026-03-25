@@ -156,6 +156,7 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
   };
   
   const [assetConfig, setAssetConfig] = useState(() => {
+    if (typeof window === 'undefined') return defaultConfig;
     try {
       const saved = localStorage.getItem("dividendAssetConfig");
       return saved ? JSON.parse(saved) : defaultConfig;
@@ -245,7 +246,9 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
     setIsUpdatingConfig(true);
     try {
       setAssetConfig(newConfig);
-      localStorage.setItem("dividendAssetConfig", JSON.stringify(newConfig));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("dividendAssetConfig", JSON.stringify(newConfig));
+      }
       setConfigOpen(false);
       await fetchSuggestedAssets(newConfig);
     } catch (error) {
