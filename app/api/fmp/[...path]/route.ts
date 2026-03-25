@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const FMP_API_KEY = process.env.FMP_API_KEY;
 const FMP_BASE_URL = 'https://financialmodelingprep.com/stable';
+const FMP_LEGACY_URL = 'https://financialmodelingprep.com/api/v3';
+
+// Legacy endpoints that need the v3 API format (symbol in path, not query)
+const LEGACY_ENDPOINTS: Record<string, boolean> = {
+  'earnings-surprises': true,
+};
 
 export async function GET(
   request: NextRequest,
@@ -21,15 +27,30 @@ export async function GET(
     // Get query params from the request URL
     const { searchParams } = new URL(request.url);
     
-    // Build the FMP URL with the API key
-    const fmpUrl = new URL(`${FMP_BASE_URL}/${endpoint}`);
+    let fmpUrl: URL;
     
-    // Copy all query params except apikey (we'll add our own)
-    searchParams.forEach((value, key) => {
-      if (key !== 'apikey') {
-        fmpUrl.searchParams.set(key, value);
+    // Check if this is a legacy endpoint
+    if (LEGACY_ENDPOINTS[endpoint]) {
+      // Legacy endpoints use /api/v3/{endpoint}/{symbol} format
+      const symbol = searchParams.get('symbol');
+      if (!symbol) {
+        return NextResponse.json(
+          { error: 'Symbol parameter required' },
+          { status: 400 }
+        );
       }
-    });
+      fmpUrl = new URL(`${FMP_LEGACY_URL}/${endpoint}/${symbol}`);
+    } else {
+      // Stable API uses query parameters
+      fmpUrl = new URL(`${FMP_BASE_URL}/${endpoint}`);
+      
+      // Copy all query params except apikey (we'll add our own)
+      searchParams.forEach((value, key) => {
+        if (key !== 'apikey') {
+          fmpUrl.searchParams.set(key, value);
+        }
+      });
+    }
     
     // Add the API key server-side
     fmpUrl.searchParams.set('apikey', FMP_API_KEY);

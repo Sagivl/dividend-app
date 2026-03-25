@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
 import { TrendingUp, Search, History, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { User } from "@/entities/User";
 
 export default function Layout({ children, currentPageName }) {
+  const router = useRouter();
   const [navItems, setNavItems] = useState([]);
 
   useEffect(() => {
@@ -73,12 +75,15 @@ export default function Layout({ children, currentPageName }) {
       <header className="bg-card/80 backdrop-blur-md shadow-lg shadow-black/10 border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href={createPageUrl("Dashboard")} className="flex items-center group">
+            <div 
+              onClick={() => router.push("/")} 
+              className="flex items-center group cursor-pointer"
+            >
               <TrendingUp className="h-8 w-8 text-primary mr-3 group-hover:text-primary/80 transition-colors" />
               <h1 className="text-xl font-bold text-foreground group-hover:text-foreground/80 transition-colors">
                 Dividend Analyzer
               </h1>
-            </Link>
+            </div>
             
             <div className="flex items-center space-x-1 md:space-x-3">
               <nav className="hidden sm:flex space-x-1 md:space-x-3">
@@ -116,10 +121,10 @@ export default function Layout({ children, currentPageName }) {
                     </Button>
                   </span>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg sm:max-w-xl md:max-w-2xl bg-card border-border text-foreground">
+                <DialogContent className="w-full h-[100dvh] max-w-full max-h-full rounded-none sm:w-auto sm:h-auto sm:max-w-xl md:max-w-2xl sm:rounded-lg sm:max-h-[85vh] bg-card border-border text-foreground">
                   <DialogHeader>
                     <DialogTitle className="text-xl sm:text-2xl text-foreground">How it Works</DialogTitle>
-                    <DialogDescription className="text-sm sm:text-base text-left py-2 sm:py-3 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto text-muted-foreground">
+                    <DialogDescription className="text-sm sm:text-base text-left py-2 sm:py-3 max-h-[calc(100dvh-120px)] sm:max-h-[70vh] overflow-y-auto text-muted-foreground">
                       <div className="space-y-4">
                         <div>
                           <h4 className="font-semibold mb-2 text-foreground">Getting Started:</h4>

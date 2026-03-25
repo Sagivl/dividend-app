@@ -134,14 +134,14 @@ export default function ConfigurationDialog({ open, onOpenChange, currentConfig,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[525px] bg-slate-800 border-slate-700 text-slate-200" dir="ltr">
+      <DialogContent className="w-full h-[100dvh] max-w-full max-h-full rounded-none sm:w-auto sm:h-auto sm:max-w-[525px] sm:rounded-lg sm:max-h-[85vh] bg-slate-800 border-slate-700 text-slate-200" dir="ltr">
         <DialogHeader>
           <DialogTitle className="text-slate-100">Configure Suggestion Criteria</DialogTitle>
           <DialogDescription className="text-slate-400">
             Set your preferred thresholds for AI stock suggestions. These values will be used to filter and score assets.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-5 py-4 max-h-[60vh] overflow-y-auto pr-2" dir="ltr">
+        <div className="grid gap-5 py-4 flex-1 max-h-[calc(100dvh-200px)] sm:max-h-[60vh] overflow-y-auto pr-2" dir="ltr">
           {renderSliderRow("Min. Market Cap", "marketCapMin", " Billion USD", config.marketCapMin, 10, 2000, 10)} 
           {renderSliderRow("Min. Chowder #", "chowderMin", "", config.chowderMin, 5, 20, 0.5)}
           {renderSliderRow("Max. Payout Ratio", "payoutRatioMax", "%", config.payoutRatioMax, 10, 90, 5)}

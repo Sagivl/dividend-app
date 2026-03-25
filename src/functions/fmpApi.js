@@ -330,6 +330,53 @@ export async function getBalanceSheet(symbol) {
 }
 
 /**
+ * Fetch with timeout wrapper
+ */
+async function fetchWithTimeout(url, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+/**
+ * Fetch earnings surprises (returns array)
+ */
+export async function getEarningsSurprises(symbol) {
+  const fullCacheKey = `earnings_surprises_${symbol}`;
+  
+  const cached = getFromCache(fullCacheKey, CACHE_TTL.fundamentals);
+  if (cached !== null) {
+    return cached;
+  }
+  
+  if (_fmpAvailable === false) return [];
+  
+  try {
+    trackApiCall();
+    const response = await fetchWithTimeout(`${FMP_API_ROUTE}/earnings-surprises?symbol=${symbol}`, 15000);
+    if (!response.ok) throw new Error(`FMP API error: ${response.status}`);
+    
+    _fmpAvailable = true;
+    const data = await response.json();
+    const result = Array.isArray(data) ? data : [];
+    
+    saveToCache(fullCacheKey, result);
+    return result;
+  } catch (error) {
+    console.error('[FMP] Error fetching earnings surprises:', error);
+    return [];
+  }
+}
+
+/**
  * Fetch stock quote (shorter cache for price data)
  */
 export async function getStockQuote(symbol) {
@@ -441,17 +488,17 @@ function calculateDividendYears(dividendHistory) {
  * OPTIMIZED: Comprehensive fetch with minimal API calls
  * Uses only essential endpoints and relies on cache
  * 
- * Reduced from 8 calls to 5 calls per stock (when cache is empty):
+ * 5 calls per stock (when cache is empty):
  * - profile (company info, beta, market cap)
  * - ratios (P/E, dividend yield, payout ratio, ROE)
  * - dividends (dividend history)
- * - income-statement (EPS, net income, EBITDA)
+ * - income-statement (EPS, net income, EBITDA) - limited to 5 records on free plan
  * - balance-sheet (debt, equity)
  * 
- * Skipped (redundant data):
+ * Skipped:
  * - key-metrics (data available in ratios)
- * - earnings-surprises (nice-to-have, not essential)
  * - quote (price from profile, or use eToro)
+ * - earnings-surprises (requires legacy subscription, not available on free plan)
  */
 export async function fetchComprehensiveFundamentals(symbol) {
   if (!hasFmpApiKey()) {
@@ -473,7 +520,8 @@ export async function fetchComprehensiveFundamentals(symbol) {
   }
 
   try {
-    // Fetch only essential endpoints (5 calls max, often fewer due to cache)
+    // Fetch essential endpoints (5 calls max, often fewer due to cache)
+    // Note: Free plan limits income statements to 5 records
     const [
       profile,
       ratios,
@@ -484,7 +532,7 @@ export async function fetchComprehensiveFundamentals(symbol) {
       getCompanyProfile(symbol),
       getFinancialRatios(symbol),
       getDividendHistory(symbol),
-      getIncomeStatement(symbol, 'annual', 3), // Reduced from 5 to 3 years
+      getIncomeStatement(symbol, 'quarter', 5), // Free plan limit is 5
       getBalanceSheet(symbol)
     ]);
 
@@ -499,10 +547,17 @@ export async function fetchComprehensiveFundamentals(symbol) {
     const nextExDate = dividendHistory?.[0]?.date || null;
     const nextPayDate = dividendHistory?.[0]?.paymentDate || null;
 
-    const epsHistory = incomeStatements?.map(stmt => ({
-      year: new Date(stmt.date).getFullYear(),
-      eps: stmt.eps
-    })).filter(e => e.eps !== null) || [];
+    const epsHistory = incomeStatements?.map(stmt => {
+      const date = new Date(stmt.date);
+      const year = date.getFullYear();
+      const quarter = Math.ceil((date.getMonth() + 1) / 3);
+      return {
+        year: year,
+        quarter: quarter,
+        period: `Q${quarter} ${year}`,
+        eps: stmt.eps
+      };
+    }).filter(e => e.eps !== null) || [];
 
     const dividendHistoryFormatted = dividendHistory?.slice(0, 20).map(d => ({
       period_label: d.date,

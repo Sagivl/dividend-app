@@ -10,7 +10,7 @@
  */
 
 const ETORO_PROXY = '/etoro-api';
-const ETORO_INSTRUMENTS_URL = 'https://www.etoro.com/sapi/instrumentsinfo/instruments';
+const ETORO_SAPI_PROXY = '/etoro-api/sapi';
 
 /**
  * Search for an instrument by ticker symbol (basic search to get instrumentId)
@@ -37,7 +37,20 @@ export async function searchBySymbol(symbol) {
     'isBuyEnabled',
     'marketCapInUSD',
     'isin',
-    'cusip'
+    'cusip',
+    // EPS and earnings fields
+    'epS-TTM',
+    'epS-Annual',
+    'epsFullyDiluted-TTM',
+    'epsGrowth1Year',
+    'epsGrowth5Years',
+    'quarterlyEPSValue',
+    'annualEPSValue',
+    'nextEarningEstimateAverage',
+    'lastEarningEstimateAverage',
+    'earningsGrowth-TTM',
+    'nextEarningDate',
+    'daysTillNextEarningReport'
   ].join(',');
 
   try {
@@ -65,16 +78,17 @@ export async function searchBySymbol(symbol) {
 
 /**
  * Fetch detailed instrument info including fundamentals, dividends, and financial ratios
- * This uses the SAPI endpoint which provides much more data than the market-data API
+ * This uses the SAPI endpoint (routed through proxy) which provides much more data than the market-data API
  */
 export async function getDetailedInstrumentInfo(instrumentId) {
   try {
-    const url = `${ETORO_INSTRUMENTS_URL}/?instrumentId=${instrumentId}`;
+    const url = `${ETORO_SAPI_PROXY}/instrumentsinfo/instruments/?instrumentId=${instrumentId}`;
     console.log('[eToro] Fetching detailed instrument info for:', instrumentId);
     
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`eToro SAPI error: ${response.status}`);
+      console.warn(`[eToro] SAPI error: ${response.status} - falling back to basic data`);
+      return null;
     }
     
     const data = await response.json();
@@ -383,8 +397,14 @@ export async function fetchEtoroData(symbol) {
       beta: detailedInfo?.['beta-TTM'] || detailedInfo?.['beta-Annual'] || null,
       
       // Earnings
-      eps: detailedInfo?.['epS-TTM'] || detailedInfo?.['epS-Annual'] || null,
-      eps_diluted: detailedInfo?.['epsFullyDiluted-TTM'] || detailedInfo?.['epsFullyDiluted-Annual'] || null,
+      eps: instrument?.['epS-TTM'] || detailedInfo?.['epS-TTM'] || detailedInfo?.['epS-Annual'] || null,
+      eps_diluted: instrument?.['epsFullyDiluted-TTM'] || detailedInfo?.['epsFullyDiluted-TTM'] || detailedInfo?.['epsFullyDiluted-Annual'] || null,
+      eps_growth_1y: instrument?.epsGrowth1Year || detailedInfo?.epsGrowth1Year || null,
+      eps_growth_5y: instrument?.epsGrowth5Years || detailedInfo?.epsGrowth5Years || null,
+      quarterly_eps_estimate: instrument?.quarterlyEPSValue || detailedInfo?.quarterlyEPSValue || null,
+      next_earning_estimate: instrument?.nextEarningEstimateAverage || detailedInfo?.nextEarningEstimateAverage || null,
+      last_earning_estimate: instrument?.lastEarningEstimateAverage || detailedInfo?.lastEarningEstimateAverage || null,
+      earnings_growth: instrument?.['earningsGrowth-TTM'] || detailedInfo?.['earningsGrowth-TTM'] || null,
       
       // Profitability metrics
       ebitda: detailedInfo?.['ebitdA-TTM'] 
@@ -460,7 +480,7 @@ export async function fetchEtoroData(symbol) {
       insider_holding_pct: detailedInfo?.['percentOfSharesOutstandingHeldByInsiders-TTM'] || null,
       
       // Upcoming events
-      next_earnings_date: detailedInfo?.nextEarningDate || null,
+      next_earnings_date: instrument?.nextEarningDate || detailedInfo?.nextEarningDate || null,
       next_dividend_ex_date: detailedInfo?.dividendExDate || null,
       
       // Additional info

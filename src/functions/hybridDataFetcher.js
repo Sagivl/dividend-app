@@ -123,6 +123,9 @@ function mergeData(etoroData, fmpData, existingData = {}) {
     setIfBetter('earnings_growth', etoroData.earnings_growth, 'etoro');
     setIfBetter('eps_growth_1y', etoroData.eps_growth_1y, 'etoro');
     setIfBetter('eps_growth_5y', etoroData.eps_growth_5y, 'etoro');
+    setIfBetter('quarterly_eps_estimate', etoroData.quarterly_eps_estimate, 'etoro');
+    setIfBetter('next_earning_estimate', etoroData.next_earning_estimate, 'etoro');
+    setIfBetter('last_earning_estimate', etoroData.last_earning_estimate, 'etoro');
     
     // === NEW: Analyst data from eToro ===
     setIfBetter('analyst_consensus', etoroData.analyst_consensus, 'etoro');

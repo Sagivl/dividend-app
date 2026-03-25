@@ -311,7 +311,7 @@ export default function OnboardingModal({ open, onComplete }) {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
-        className="sm:max-w-[500px] bg-slate-800 border-slate-700 text-slate-200 [&>button]:hidden"
+        className="w-full h-[100dvh] max-w-full max-h-full rounded-none sm:w-auto sm:h-auto sm:max-w-[500px] sm:rounded-lg sm:max-h-[85vh] bg-slate-800 border-slate-700 text-slate-200 [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -334,7 +334,7 @@ export default function OnboardingModal({ open, onComplete }) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 max-h-[50vh] overflow-y-auto">
+        <div className="py-4 flex-1 max-h-[calc(100dvh-200px)] sm:max-h-[50vh] overflow-y-auto">
           {renderStepContent()}
         </div>
 
