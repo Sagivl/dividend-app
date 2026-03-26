@@ -80,10 +80,18 @@ const MarketCapDisplay = ({
 
   const content = <span className={className}>{displayValue}</span>;
 
+  const handleOpenChange = (newOpen) => {
+    // Only use Radix's open/close for hover-capable devices (desktop)
+    // On touch devices, we control state via onClick only to avoid double-toggle
+    if (window.matchMedia('(hover: hover)').matches) {
+      setOpen(newOpen);
+    }
+  };
+
   if (showTooltip) {
     return (
       <TooltipProvider>
-        <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+        <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
           <TooltipTrigger asChild>
             <button 
               type="button"

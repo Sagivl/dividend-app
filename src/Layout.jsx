@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
-import { TrendingUp, Search, History, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2 } from "lucide-react";
+import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,7 +34,7 @@ export default function Layout({ children, currentPageName }) {
           name: "SuggestedStocks",
           displayName: "Watchlist",
           path: createPageUrl("SuggestedStocks"),
-          icon: History,
+          icon: Star,
           description: "View analyzed stocks"
         },
         {
@@ -178,7 +178,7 @@ export default function Layout({ children, currentPageName }) {
                           key={item.name + "-mobile"}
                           href={item.path}
                           title={item.description}
-                          className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 ${ 
+                          className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${ 
                               isActive 
                                 ? "text-primary"
                                 : "text-muted-foreground hover:text-primary/80"

@@ -1,25 +1,14 @@
 /**
  * Hybrid Data Fetcher
- * Combines eToro API (PRIMARY) + Financial Modeling Prep (FALLBACK)
- * 
- * Data Source Priority (eToro is now PRIMARY for most fields):
- * - eToro (Primary): Price, price history, logos, sector, 52-week range, price changes,
- *   dividends, P/E ratio, EPS, ROE, beta, financials, debt/equity, analyst data, ESG
- * - FMP (Fallback): Only used when eToro data is not available
- * 
- * This reduces FMP API usage (250 calls/day limit) significantly
+ * Uses eToro API as the primary and only data source
  */
 
 import { fetchEtoroData, isEtoroAvailable } from './etoroApi';
-import { fetchComprehensiveFundamentals, hasFmpApiKey, getApiCallCount } from './fmpApi';
-
-export { getApiCallCount };
 
 /**
- * Merge data from multiple sources
- * eToro is now PRIMARY, FMP is FALLBACK
+ * Process eToro data into the expected format
  */
-function mergeData(etoroData, fmpData, existingData = {}) {
+function processData(etoroData, existingData = {}) {
   const result = { ...existingData };
   
   const setIfBetter = (key, value, source) => {
@@ -31,7 +20,6 @@ function mergeData(etoroData, fmpData, existingData = {}) {
     }
   };
 
-  // eToro is PRIMARY - apply all eToro data first
   if (etoroData?.hasData) {
     // Basic info
     setIfBetter('name', etoroData.name, 'etoro');
@@ -67,7 +55,7 @@ function mergeData(etoroData, fmpData, existingData = {}) {
     result.oneYearPriceChange = etoroData.oneYearPriceChange;
     result.twoYearPriceChange = etoroData.twoYearPriceChange;
     
-    // === NEW: Dividend data from eToro (previously FMP-only) ===
+    // Dividend data
     setIfBetter('dividend_yield', etoroData.dividend_yield, 'etoro');
     setIfBetter('payout_ratio', etoroData.payout_ratio, 'etoro');
     setIfBetter('avg_div_growth_5y', etoroData.avg_div_growth_5y, 'etoro');
@@ -81,25 +69,25 @@ function mergeData(etoroData, fmpData, existingData = {}) {
       result.dividend_history_source = 'etoro';
     }
     
-    // === NEW: Valuation ratios from eToro (previously FMP-only) ===
+    // Valuation ratios
     setIfBetter('pe_ratio', etoroData.pe_ratio, 'etoro');
     setIfBetter('peg_ratio', etoroData.peg_ratio, 'etoro');
     setIfBetter('price_to_book', etoroData.price_to_book, 'etoro');
     setIfBetter('price_to_sales', etoroData.price_to_sales, 'etoro');
     setIfBetter('price_to_cash_flow', etoroData.price_to_cash_flow, 'etoro');
     
-    // === NEW: Profitability from eToro (previously FMP-only) ===
+    // Profitability
     setIfBetter('roe', etoroData.roe, 'etoro');
     setIfBetter('roa', etoroData.roa, 'etoro');
     
-    // === NEW: Risk from eToro (previously FMP-only) ===
+    // Risk
     setIfBetter('beta', etoroData.beta, 'etoro');
     
-    // === NEW: Earnings from eToro (previously FMP-only) ===
+    // Earnings
     setIfBetter('eps', etoroData.eps, 'etoro');
     setIfBetter('eps_diluted', etoroData.eps_diluted, 'etoro');
     
-    // === NEW: Financials from eToro (previously FMP-only) ===
+    // Financials
     setIfBetter('ebitda', etoroData.ebitda, 'etoro');
     setIfBetter('ebt', etoroData.ebt, 'etoro');
     setIfBetter('net_income', etoroData.net_income, 'etoro');
@@ -108,13 +96,13 @@ function mergeData(etoroData, fmpData, existingData = {}) {
     setIfBetter('basic_shares', etoroData.basic_shares, 'etoro');
     setIfBetter('diluted_shares', etoroData.diluted_shares, 'etoro');
     
-    // === NEW: Margins from eToro ===
+    // Margins
     setIfBetter('gross_margin', etoroData.gross_margin, 'etoro');
     setIfBetter('operating_margin', etoroData.operating_margin, 'etoro');
     setIfBetter('net_margin', etoroData.net_margin, 'etoro');
     setIfBetter('ebitda_margin', etoroData.ebitda_margin, 'etoro');
     
-    // === NEW: Growth rates from eToro ===
+    // Growth rates
     setIfBetter('revenue_growth_1y', etoroData.revenue_growth_1y, 'etoro');
     setIfBetter('revenue_growth_3y', etoroData.revenue_growth_3y, 'etoro');
     setIfBetter('revenue_growth_5y', etoroData.revenue_growth_5y, 'etoro');
@@ -127,23 +115,23 @@ function mergeData(etoroData, fmpData, existingData = {}) {
     setIfBetter('next_earning_estimate', etoroData.next_earning_estimate, 'etoro');
     setIfBetter('last_earning_estimate', etoroData.last_earning_estimate, 'etoro');
     
-    // === NEW: Analyst data from eToro ===
+    // Analyst data
     setIfBetter('analyst_consensus', etoroData.analyst_consensus, 'etoro');
     setIfBetter('analyst_count', etoroData.analyst_count, 'etoro');
     setIfBetter('analyst_target_price', etoroData.analyst_target_price, 'etoro');
     setIfBetter('analyst_target_upside', etoroData.analyst_target_upside, 'etoro');
     
-    // === NEW: ESG scores from eToro ===
+    // ESG scores
     setIfBetter('esg_total', etoroData.esg_total, 'etoro');
     setIfBetter('esg_environment', etoroData.esg_environment, 'etoro');
     setIfBetter('esg_social', etoroData.esg_social, 'etoro');
     setIfBetter('esg_governance', etoroData.esg_governance, 'etoro');
     
-    // === NEW: Liquidity ratios from eToro ===
+    // Liquidity ratios
     setIfBetter('current_ratio', etoroData.current_ratio, 'etoro');
     setIfBetter('quick_ratio', etoroData.quick_ratio, 'etoro');
     
-    // === NEW: Additional metrics from eToro ===
+    // Additional metrics
     setIfBetter('free_cash_flow', etoroData.free_cash_flow, 'etoro');
     setIfBetter('enterprise_value', etoroData.enterprise_value, 'etoro');
     setIfBetter('institutional_holding_pct', etoroData.institutional_holding_pct, 'etoro');
@@ -152,56 +140,6 @@ function mergeData(etoroData, fmpData, existingData = {}) {
     setIfBetter('next_dividend_ex_date', etoroData.next_dividend_ex_date, 'etoro');
     setIfBetter('number_of_employees', etoroData.number_of_employees, 'etoro');
     setIfBetter('company_description', etoroData.company_description, 'etoro');
-  }
-
-  // FMP is FALLBACK - only fills in missing values
-  if (fmpData?.hasData) {
-    setIfBetter('name', fmpData.name, 'fmp');
-    setIfBetter('sector', fmpData.sector, 'fmp');
-    setIfBetter('exchange', fmpData.exchange, 'fmp');
-    setIfBetter('price', fmpData.price, 'fmp');
-    setIfBetter('market_cap', fmpData.market_cap, 'fmp');
-    setIfBetter('beta', fmpData.beta, 'fmp');
-    setIfBetter('min_52w', fmpData.min_52w, 'fmp');
-    setIfBetter('max_52w', fmpData.max_52w, 'fmp');
-    
-    // Dividend data fallback
-    setIfBetter('dividend_yield', fmpData.dividend_yield, 'fmp');
-    setIfBetter('payout_ratio', fmpData.payout_ratio, 'fmp');
-    setIfBetter('avg_div_growth_5y', fmpData.avg_div_growth_5y, 'fmp');
-    setIfBetter('dividend_years', fmpData.dividend_years, 'fmp');
-    setIfBetter('ex_date', fmpData.ex_date, 'fmp');
-    setIfBetter('dividend_pay_date', fmpData.dividend_pay_date, 'fmp');
-    setIfBetter('div_distribution_sequence', fmpData.div_distribution_sequence, 'fmp');
-    
-    // Valuation fallback
-    setIfBetter('pe_ratio', fmpData.pe_ratio, 'fmp');
-    setIfBetter('eps', fmpData.eps, 'fmp');
-    setIfBetter('roe', fmpData.roe, 'fmp');
-    
-    // Financials fallback
-    setIfBetter('total_debt', fmpData.total_debt, 'fmp');
-    setIfBetter('shareholder_equity', fmpData.shareholder_equity, 'fmp');
-    setIfBetter('ebitda', fmpData.ebitda, 'fmp');
-    setIfBetter('ebt', fmpData.ebt, 'fmp');
-    setIfBetter('net_income', fmpData.net_income, 'fmp');
-    setIfBetter('net_income_prev', fmpData.net_income_prev, 'fmp');
-    setIfBetter('net_income_prev2', fmpData.net_income_prev2, 'fmp');
-    setIfBetter('diluted_shares', fmpData.diluted_shares, 'fmp');
-    setIfBetter('basic_shares', fmpData.basic_shares, 'fmp');
-    
-    // History arrays fallback
-    if (!result.eps_history && fmpData.eps_history?.length > 0) {
-      result.eps_history = fmpData.eps_history;
-      result.eps_history_source = 'fmp';
-    }
-    if (fmpData.eps_surprise_history?.length > 0) {
-      result.eps_surprise_history = fmpData.eps_surprise_history;
-    }
-    if (!result.dividend_history && fmpData.dividend_history?.length > 0) {
-      result.dividend_history = fmpData.dividend_history;
-      result.dividend_history_source = 'fmp';
-    }
   }
 
   // Calculate Chowder number if we have both values
@@ -213,14 +151,13 @@ function mergeData(etoroData, fmpData, existingData = {}) {
 }
 
 /**
- * Fetch comprehensive stock data from all available sources
+ * Fetch comprehensive stock data from eToro
  */
 export async function fetchHybridStockData(symbol, existingData = {}) {
-  console.log(`[Hybrid] Fetching data for ${symbol} from all sources`);
+  console.log(`[Data] Fetching data for ${symbol} from eToro`);
   
   const sources = {
-    etoro: { available: false, data: null },
-    fmp: { available: hasFmpApiKey(), data: null }
+    etoro: { available: false, data: null }
   };
 
   try {
@@ -229,39 +166,33 @@ export async function fetchHybridStockData(symbol, existingData = {}) {
     sources.etoro.available = false;
   }
 
-  const fetchPromises = [];
-  
-  if (sources.etoro.available) {
-    fetchPromises.push(
-      fetchEtoroData(symbol)
-        .then(data => { sources.etoro.data = data; })
-        .catch(err => { console.warn('[Hybrid] eToro fetch failed:', err); })
-    );
-  }
-  
-  if (sources.fmp.available) {
-    fetchPromises.push(
-      fetchComprehensiveFundamentals(symbol)
-        .then(data => { sources.fmp.data = data; })
-        .catch(err => { console.warn('[Hybrid] FMP fetch failed:', err); })
-    );
+  if (!sources.etoro.available) {
+    console.warn('[Data] eToro API not available');
+    return {
+      success: false,
+      data: existingData,
+      sources: { etoro: 'unavailable' }
+    };
   }
 
-  await Promise.all(fetchPromises);
+  try {
+    sources.etoro.data = await fetchEtoroData(symbol);
+  } catch (err) {
+    console.warn('[Data] eToro fetch failed:', err);
+  }
 
-  const result = mergeData(sources.etoro.data, sources.fmp.data, existingData);
+  const result = processData(sources.etoro.data, existingData);
   
   result.ticker = result.ticker || symbol.toUpperCase();
   result.last_updated = new Date().toISOString();
   
   result._dataSources = {
-    etoro: sources.etoro.data?.hasData ? 'success' : (sources.etoro.available ? 'no_data' : 'unavailable'),
-    fmp: sources.fmp.data?.hasData ? 'success' : (sources.fmp.available ? 'no_data' : 'unavailable')
+    etoro: sources.etoro.data?.hasData ? 'success' : 'no_data'
   };
 
-  const hasAnyData = sources.etoro.data?.hasData || sources.fmp.data?.hasData;
+  const hasAnyData = sources.etoro.data?.hasData;
   
-  console.log(`[Hybrid] Data fetch complete. Sources: eToro=${result._dataSources.etoro}, FMP=${result._dataSources.fmp}`);
+  console.log(`[Data] Fetch complete. Source: eToro=${result._dataSources.etoro}`);
   
   return {
     success: hasAnyData,
@@ -275,8 +206,7 @@ export async function fetchHybridStockData(symbol, existingData = {}) {
  */
 export async function getDataSourcesStatus() {
   const status = {
-    etoro: { available: false, configured: true },
-    fmp: { available: hasFmpApiKey(), configured: hasFmpApiKey() }
+    etoro: { available: false, configured: true }
   };
   
   try {
@@ -289,12 +219,12 @@ export async function getDataSourcesStatus() {
 }
 
 /**
- * Get information about what data each source provides
+ * Get information about what data the source provides
  */
 export function getDataSourceCapabilities() {
   return {
     etoro: {
-      name: 'eToro (PRIMARY)',
+      name: 'eToro',
       priority: 'primary',
       provides: [
         // Market data
@@ -306,37 +236,37 @@ export function getDataSourceCapabilities() {
         'Sector/Industry',
         'Trading Status',
         'ISIN/CUSIP',
-        // Dividend data (NEW)
+        // Dividend data
         'Dividend Yield & History',
         'Payout Ratio',
         '5-Year Dividend Growth Rate',
         'Ex-Dividend & Pay Dates',
         'Dividend Frequency',
-        // Valuation (NEW)
+        // Valuation
         'P/E Ratio',
         'PEG Ratio',
         'Price to Book',
         'Price to Sales',
         'Price to Cash Flow',
-        // Earnings (NEW)
+        // Earnings
         'EPS (Basic & Diluted)',
         'EBITDA',
         'Net Income',
         'Pre-tax Income',
-        // Balance Sheet (NEW)
+        // Balance Sheet
         'Total Debt',
         'Shareholder Equity',
         'Shares Outstanding',
-        // Profitability (NEW)
+        // Profitability
         'ROE, ROA',
         'Beta',
         'Gross/Operating/Net Margins',
-        // Growth (NEW)
+        // Growth
         'Revenue Growth (1Y, 3Y, 5Y)',
         'Income Growth (3Y, 5Y)',
         'Earnings Growth',
         'EPS Growth (1Y, 5Y)',
-        // Additional (NEW)
+        // Additional
         'Analyst Ratings & Price Targets',
         'ESG Scores',
         'Liquidity Ratios',
@@ -347,18 +277,6 @@ export function getDataSourceCapabilities() {
         'Number of Employees'
       ],
       requires: 'eToro API proxy configured'
-    },
-    fmp: {
-      name: 'Financial Modeling Prep (FALLBACK)',
-      priority: 'fallback',
-      provides: [
-        'EPS History (year-by-year)',
-        'Earnings Surprises',
-        'Net Income History (prev years)',
-        'Any field not available from eToro'
-      ],
-      requires: 'FMP API key in .env (free: 250 calls/day)',
-      note: 'Now used as fallback only - eToro provides most data'
     }
   };
 }

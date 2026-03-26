@@ -4,9 +4,6 @@
  * dividends, fundamentals, financial ratios, and more
  * 
  * API Documentation: https://api-portal.etoro.com/
- * 
- * NOTE: This is now the PRIMARY data source for most fields,
- * reducing dependency on FMP API (which has 250 calls/day limit)
  */
 
 const ETORO_PROXY = '/etoro-api';
@@ -442,7 +439,7 @@ export async function fetchEtoroData(symbol) {
       // Price history
       price_history: priceHistory,
       
-      // === NEW FIELDS FROM ETORO (previously from FMP) ===
+      // Financial data from eToro
       
       // Dividend data
       dividend_yield: dividendYield,

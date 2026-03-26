@@ -7,7 +7,7 @@ import { Save, Calendar, Info, Sparkles, Loader2, AlertCircle as LucideAlertCirc
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parseISO, isValid, parse } from "date-fns";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { fetchHybridStockData, getDataSourcesStatus, getApiCallCount } from "@/functions/hybridDataFetcher";
+import { fetchHybridStockData, getDataSourcesStatus } from "@/functions/hybridDataFetcher";
 import { Stock } from "@/entities/Stock";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -290,7 +290,7 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
     let success = false;
 
     try {
-      console.log(`Fetching data for: ${tickerToFetch} from eToro + FMP`);
+      console.log(`Fetching data for: ${tickerToFetch} from eToro`);
 
       const result = await fetchHybridStockData(tickerToFetch, stock || data);
 
@@ -459,20 +459,11 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
             ) : (
               <Database className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             )}
-            {isFetchingData ? 'Fetching & Saving...' : 'Fetch Data (eToro + FMP)'}
+            {isFetchingData ? 'Fetching & Saving...' : 'Fetch Data (eToro)'}
           </Button>
           {dataSources && (
             <div className="text-xs p-2 rounded border max-w-xs sm:max-w-sm text-center bg-green-900/20 border-green-700/50 text-green-300">
-              <div>Sources: eToro ({dataSources.etoro}), FMP ({dataSources.fmp})</div>
-              {(() => {
-                const apiStatus = getApiCallCount();
-                const isLow = apiStatus.remaining < 50;
-                return (
-                  <div className={`mt-1 ${isLow ? 'text-amber-300' : 'text-slate-400'}`}>
-                    FMP API: {apiStatus.remaining}/{apiStatus.limit} calls remaining today
-                  </div>
-                );
-              })()}
+              <div>Source: eToro ({dataSources.etoro})</div>
             </div>
           )}
           {fetchError && (

@@ -18,11 +18,19 @@ import {
 const ChartInfoTooltip = ({ title, explanation }) => {
   const [open, setOpen] = React.useState(false);
 
+  const handleOpenChange = (newOpen) => {
+    // Only use Radix's open/close for hover-capable devices (desktop)
+    // On touch devices, we control state via onClick only to avoid double-toggle
+    if (window.matchMedia('(hover: hover)').matches) {
+      setOpen(newOpen);
+    }
+  };
+
   return (
     <div className="flex items-center">
       <span className="truncate">{title}</span>
       <TooltipProvider>
-        <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+        <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
           <TooltipTrigger asChild>
             <button 
               type="button"
