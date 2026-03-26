@@ -69,53 +69,90 @@ const DEMO_INSTRUMENTS = [
 export async function searchInstruments(params) {
   const query = params.searchText || params.internalInstrumentDisplayName || params.internalSymbolFull || '';
   const pageSize = params.pageSize || 20;
-  // Use field names as per eToro API documentation schema
-  const fields = 'instrumentId,displayname,symbol,instrumentType,currentRate,logo50x50,dailyPriceChange,isOpen,internalInstrumentDisplayName,internalSymbolFull,internalAssetClassName';
 
   try {
-    // Use searchText parameter as per eToro API documentation
-    const searchUrl = `/etoro-api/api/v1/market-data/search?searchText=${encodeURIComponent(query)}&pageSize=${pageSize}&fields=${fields}`;
+    // Note: Do NOT use the 'fields' parameter - it causes the eToro API to only return instrumentId
+    // Without 'fields', the API returns all data including symbols, names, prices, etc.
+    
+    // First, try exact symbol match - this works much better for ticker searches
+    // Run both searches in parallel for speed
+    const exactMatchUrl = `/etoro-api/api/v1/market-data/search?internalSymbolFull=${encodeURIComponent(query.toUpperCase())}&pageSize=5`;
+    const textSearchUrl = `/etoro-api/api/v1/market-data/search?searchText=${encodeURIComponent(query)}&pageSize=${pageSize}`;
 
     console.log('[searchInstruments] Searching for:', query);
-    console.log('[searchInstruments] URL:', searchUrl);
     
-    const response = await fetch(searchUrl);
+    const [exactResponse, textResponse] = await Promise.all([
+      fetch(exactMatchUrl).catch(() => null),
+      fetch(textSearchUrl).catch(() => null)
+    ]);
 
-    console.log('[searchInstruments] Response status:', response.status);
+    let allItems = [];
+    const seenIds = new Set();
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[searchInstruments] Request failed:', errorText);
-      throw new Error('API request failed');
+    // Process exact match results first (these are more relevant)
+    if (exactResponse?.ok) {
+      const exactData = await exactResponse.json();
+      const exactItems = (exactData.items || [])
+        .filter(item => item && item.instrumentId && item.instrumentId > 0 && item.internalSymbolFull)
+        .map(item => ({
+          instrumentId: item.instrumentId,
+          internalInstrumentDisplayName: item.internalInstrumentDisplayName || item.displayname || '',
+          internalSymbolFull: item.internalSymbolFull || item.symbol || '',
+          internalAssetClassName: item.internalAssetClassName || item.instrumentType || '',
+          currentRate: item.currentRate,
+          logo50x50: item.logo50x50,
+          dailyPriceChange: item.dailyPriceChange,
+          isOpen: item.isOpen
+        }));
+      
+      exactItems.forEach(item => {
+        if (!seenIds.has(item.instrumentId)) {
+          seenIds.add(item.instrumentId);
+          allItems.push(item);
+        }
+      });
+      console.log('[searchInstruments] Exact match results:', exactItems.length);
     }
 
-    const data = await response.json();
-    
-    console.log('[searchInstruments] Results:', data.items?.length || 0);
-    console.log('[searchInstruments] First item:', JSON.stringify(data.items?.[0]));
+    // Process text search results
+    if (textResponse?.ok) {
+      const textData = await textResponse.json();
+      const textItems = (textData.items || [])
+        .filter(item => item && item.instrumentId && item.instrumentId > 0 && item.internalSymbolFull)
+        .map(item => ({
+          instrumentId: item.instrumentId,
+          internalInstrumentDisplayName: item.internalInstrumentDisplayName || item.displayname || '',
+          internalSymbolFull: item.internalSymbolFull || item.symbol || '',
+          internalAssetClassName: item.internalAssetClassName || item.instrumentType || '',
+          currentRate: item.currentRate,
+          logo50x50: item.logo50x50,
+          dailyPriceChange: item.dailyPriceChange,
+          isOpen: item.isOpen
+        }));
+      
+      textItems.forEach(item => {
+        if (!seenIds.has(item.instrumentId)) {
+          seenIds.add(item.instrumentId);
+          allItems.push(item);
+        }
+      });
+      console.log('[searchInstruments] Text search results:', textItems.length);
+    }
 
-    // Map API response fields to expected format
-    const mappedItems = (data.items || [])
-      .filter(item => item && item.instrumentId && item.instrumentId > 0)
-      .map(item => ({
-        instrumentId: item.instrumentId,
-        internalInstrumentDisplayName: item.internalInstrumentDisplayName || item.displayname || '',
-        internalSymbolFull: item.internalSymbolFull || item.symbol || '',
-        internalAssetClassName: item.internalAssetClassName || item.instrumentType || '',
-        currentRate: item.currentRate,
-        logo50x50: item.logo50x50,
-        dailyPriceChange: item.dailyPriceChange,
-        isOpen: item.isOpen
-      }))
-      .slice(0, pageSize);
+    // Limit to requested page size
+    const mappedItems = allItems.slice(0, pageSize);
 
-    // Check if API returned incomplete data (only instrumentId, missing names/symbols)
-    // This happens when API auth headers are not properly sent
+    console.log('[searchInstruments] Total combined results:', mappedItems.length);
+    if (mappedItems[0]) {
+      console.log('[searchInstruments] First item:', mappedItems[0].internalSymbolFull, '-', mappedItems[0].internalInstrumentDisplayName);
+    }
+
+    // Check if we got any valid data
     const hasCompleteData = mappedItems.length > 0 && 
       mappedItems.some(item => item.internalSymbolFull || item.internalInstrumentDisplayName);
     
-    if (!hasCompleteData && mappedItems.length > 0) {
-      console.warn('[searchInstruments] API returned incomplete data (missing names/symbols), using demo data');
+    if (!hasCompleteData) {
+      console.warn('[searchInstruments] API returned incomplete data, using demo data');
       throw new Error('API returned incomplete data');
     }
 
@@ -150,11 +187,8 @@ export async function searchInstruments(params) {
 
 export async function getInstrument(instrumentId) {
   try {
-    const queryParams = new URLSearchParams();
-    queryParams.append('instrumentId', instrumentId);
-    queryParams.append('fields', 'instrumentId,internalInstrumentDisplayName,internalSymbolFull,internalAssetClassName,currentRate,logo50x50,logo150x150,dailyPriceChange,weeklyPriceChange,monthlyPriceChange,oneYearPriceChange,isOpen,isCurrentlyTradable');
-
-    const response = await fetch(`/etoro-api/api/v1/market-data/search?${queryParams.toString()}`);
+    // Note: Do NOT use 'fields' parameter - it causes the API to only return instrumentId
+    const response = await fetch(`/etoro-api/api/v1/market-data/search?instrumentId=${instrumentId}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch instrument');
