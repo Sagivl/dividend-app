@@ -12,6 +12,7 @@ import OnboardingModal from "../components/OnboardingModal";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, PieChart, Loader2, CheckCircle } from "lucide-react";
+import { fetchHybridStockData } from "../functions/hybridDataFetcher";
 
 export default function Dashboard() {
   const searchParams = useSearchParams();
@@ -105,77 +106,108 @@ export default function Dashboard() {
     return true;
   };
 
-  const handleSearch = useCallback((query, targetTab = "analysis") => {
+  const isDataStale = (stock) => {
+    if (!stock?.last_updated && !stock?.updated_at) return true;
+    const lastUpdate = stock.last_updated || stock.updated_at;
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    return new Date(lastUpdate).getTime() < oneHourAgo;
+  };
+
+  const handleSearch = useCallback(async (query, targetTab = "analysis") => {
     console.log("Searching for:", query);
     
     setIsLoading(true);
     
     try {
+      const ticker = query.toUpperCase().trim();
       const normalizedQuery = query.toLowerCase().trim();
       
       // Update URL using Next.js router
       const urlParams = new URLSearchParams(searchParams?.toString() || '');
       const currentTicker = urlParams.get('ticker')?.toUpperCase();
-      const newTicker = query.toUpperCase();
       
-      if (newTicker !== currentTicker) {
-        urlParams.set("ticker", newTicker);
-        if (targetTab) {
-          urlParams.set("tab", targetTab);
-        }
-        // Use replace to avoid creating history entries for each search
+      if (ticker !== currentTicker) {
+        urlParams.set("ticker", ticker);
+        urlParams.set("tab", "analysis");
         router.replace(`${pathname}?${urlParams.toString()}`);
       }
       
-      let foundStock = null;
-      
-      // Find stock in already loaded data
+      // Find existing stock in already loaded data
+      let existingStock = null;
       if (stocks.length > 0) {
-        // First try exact ticker match
-        foundStock = stocks.find(
-          s => s.ticker && 
-              s.ticker.toUpperCase() === normalizedQuery.toUpperCase()
+        existingStock = stocks.find(
+          s => s.ticker && s.ticker.toUpperCase() === ticker
         );
         
-        // If no ticker match, try name search
-        if (!foundStock) {
-          foundStock = stocks.find(
-            s => s.name && 
-                s.name.toLowerCase().includes(normalizedQuery)
+        if (!existingStock) {
+          existingStock = stocks.find(
+            s => s.name && s.name.toLowerCase().includes(normalizedQuery)
           );
         }
       }
       
-      if (foundStock) {
-        console.log("Found existing stock:", foundStock.ticker);
-        setSelectedStock(foundStock);
+      // Determine if we need to fetch fresh data
+      const needsFetch = !existingStock || !existingStock.price || isDataStale(existingStock);
+      
+      if (needsFetch) {
+        console.log("Fetching fresh data for:", ticker);
         
-        // Navigate to appropriate tab
-        if (targetTab && isDataSufficientForTab(targetTab, foundStock)) {
-          setActiveTab(targetTab);
-        } else if (isDataSufficientForTab("analysis", foundStock)) {
+        const result = await fetchHybridStockData(ticker, existingStock || { ticker });
+        
+        if (result.success && result.data) {
+          const user = await User.me();
+          let savedStock;
+          
+          if (existingStock?.id) {
+            console.log("Updating existing stock:", existingStock.id);
+            savedStock = await Stock.update(existingStock.id, result.data);
+          } else {
+            console.log("Creating new stock:", ticker);
+            savedStock = await Stock.create({ 
+              ...result.data, 
+              ticker,
+              created_by: user?.email 
+            });
+          }
+          
+          // Update local state efficiently
+          setStocks(prevStocks => {
+            const index = prevStocks.findIndex(s => s.id === savedStock.id);
+            if (index > -1) {
+              const newStocks = [...prevStocks];
+              newStocks[index] = savedStock;
+              return newStocks;
+            } else {
+              return [savedStock, ...prevStocks];
+            }
+          });
+          
+          setSelectedStock(savedStock);
           setActiveTab("analysis");
         } else {
-          setActiveTab("input");
+          console.log("Fetch failed, using existing data or fallback");
+          if (existingStock) {
+            setSelectedStock(existingStock);
+            setActiveTab(existingStock.price ? "analysis" : "input");
+          } else {
+            setSelectedStock({ ticker });
+            setActiveTab("input");
+          }
         }
       } else {
-        console.log("Stock not found, creating new entry");
-        const trimmedQuery = query.trim();
-        const isLikelyTicker = trimmedQuery.toUpperCase() === trimmedQuery && !trimmedQuery.includes(' ');
-
-        setSelectedStock({ 
-          ticker: isLikelyTicker ? trimmedQuery.toUpperCase() : "",
-          name: isLikelyTicker ? "" : trimmedQuery
-        });
-        setActiveTab("input");
+        console.log("Using cached data for:", existingStock.ticker);
+        setSelectedStock(existingStock);
+        setActiveTab("analysis");
       }
     } catch (error) {
       console.error("Error in search:", error);
-      setSelectedStock(null);
+      const ticker = query.toUpperCase().trim();
+      setSelectedStock({ ticker });
+      setActiveTab("input");
     } finally {
       setIsLoading(false);
     }
-  }, [stocks, searchParams, pathname, router]); // `stocks` is a dependency as `handleSearch` uses it
+  }, [stocks, searchParams, pathname, router]);
 
   // Process URL params when searchParams changes (handles Link navigation)
   useEffect(() => {
