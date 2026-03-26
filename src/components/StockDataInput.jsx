@@ -159,8 +159,18 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
     if (formattedData.news_sentiment === undefined) formattedData.news_sentiment = null;
     if (formattedData.analyst_recommendation === undefined) formattedData.analyst_recommendation = null;
 
-    formattedData.ex_date = exDate && isValid(exDate) ? format(exDate, 'yyyy-MM-dd') : null;
-    formattedData.dividend_pay_date = payDate && isValid(payDate) ? format(payDate, 'yyyy-MM-dd') : null;
+    // Use state values if available, otherwise preserve incoming data (handles async state updates)
+    if (exDate && isValid(exDate)) {
+      formattedData.ex_date = format(exDate, 'yyyy-MM-dd');
+    } else if (!formattedData.ex_date) {
+      formattedData.ex_date = null;
+    }
+    
+    if (payDate && isValid(payDate)) {
+      formattedData.dividend_pay_date = format(payDate, 'yyyy-MM-dd');
+    } else if (!formattedData.dividend_pay_date) {
+      formattedData.dividend_pay_date = null;
+    }
 
     ['revenue_history', 'eps_history', 'price_history', 'dividend_history', 'eps_surprise_history'].forEach(field => {
       if (!Array.isArray(formattedData[field])) {
@@ -365,10 +375,18 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
 
   const MobileTooltip = ({ text }) => {
     const [open, setOpen] = useState(false);
+
+    const handleOpenChange = (newOpen) => {
+      // Only use Radix's open/close for hover-capable devices (desktop)
+      // On touch devices, we control state via onClick only to avoid double-toggle
+      if (window.matchMedia('(hover: hover)').matches) {
+        setOpen(newOpen);
+      }
+    };
     
     return (
       <TooltipProvider>
-        <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+        <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
           <TooltipTrigger asChild>
             <button 
               type="button"
@@ -488,22 +506,6 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {renderField("dividend_yield", "Dividend Yield (%)", "Annual dividend as percentage of share price", "number")}
-
-            <div className="space-y-1 sm:space-y-2">
-              <div className="flex items-center">
-                <Label htmlFor="ex_date_button" className="text-xs sm:text-sm font-medium text-slate-300">Ex-Dividend Date</Label>
-                {renderTooltip("Date when stock trades without the dividend value. Own before this date for the dividend.")}
-              </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button id="ex_date_button" variant="outline" className="w-full justify-start text-left font-normal h-8 sm:h-9 text-xs sm:text-sm overflow-hidden bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 focus:ring-green-500" disabled={formFieldsDisabled}>
-                    <Calendar className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                    <span className="truncate">{exDate && isValid(exDate) ? format(exDate, "MMM d, yyyy") : "Select date"}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700"><CalendarPicker mode="single" selected={exDate} onSelect={setExDate} initialFocus disabled={formFieldsDisabled} className="text-slate-200"/></PopoverContent>
-              </Popover>
-            </div>
 
             <div className="space-y-1 sm:space-y-2">
               <div className="flex items-center">

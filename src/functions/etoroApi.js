@@ -102,6 +102,78 @@ export async function getDetailedInstrumentInfo(instrumentId) {
 }
 
 /**
+ * Debug function to discover all available fields from SAPI for a given instrument
+ * Call this to see what fields are available but not yet extracted
+ */
+export async function discoverSapiFields(symbol) {
+  console.log(`[eToro Debug] Discovering all SAPI fields for ${symbol}...`);
+  
+  const instrument = await searchBySymbol(symbol);
+  if (!instrument?.instrumentId) {
+    console.error('[eToro Debug] Instrument not found');
+    return null;
+  }
+  
+  const detailedInfo = await getDetailedInstrumentInfo(instrument.instrumentId);
+  if (!detailedInfo) {
+    console.error('[eToro Debug] No detailed info available');
+    return null;
+  }
+  
+  // Get all keys and categorize them
+  const allKeys = Object.keys(detailedInfo);
+  const categories = {
+    revenue: allKeys.filter(k => k.toLowerCase().includes('revenue')),
+    eps: allKeys.filter(k => k.toLowerCase().includes('eps') || k.toLowerCase().includes('earning')),
+    surprise: allKeys.filter(k => k.toLowerCase().includes('surprise') || k.toLowerCase().includes('actual') || k.toLowerCase().includes('estimate')),
+    quarterly: allKeys.filter(k => k.toLowerCase().includes('quarter') || k.toLowerCase().includes('q1') || k.toLowerCase().includes('q2') || k.toLowerCase().includes('q3') || k.toLowerCase().includes('q4')),
+    annual: allKeys.filter(k => k.includes('-Annual')),
+    ttm: allKeys.filter(k => k.includes('-TTM')),
+    sector: allKeys.filter(k => k.toLowerCase().includes('sector') || k.toLowerCase().includes('industry')),
+    credit: allKeys.filter(k => k.toLowerCase().includes('credit') || k.toLowerCase().includes('rating') || k.toLowerCase().includes('debt')),
+    tipranks: allKeys.filter(k => k.toLowerCase().includes('tiprank')),
+    sentiment: allKeys.filter(k => k.toLowerCase().includes('sentiment') || k.toLowerCase().includes('news')),
+  };
+  
+  console.log('[eToro Debug] === SAPI Field Discovery Results ===');
+  console.log(`[eToro Debug] Total fields available: ${allKeys.length}`);
+  console.log('[eToro Debug] --- Revenue-related fields ---', categories.revenue);
+  console.log('[eToro Debug] --- EPS/Earnings fields ---', categories.eps);
+  console.log('[eToro Debug] --- Surprise/Estimate fields ---', categories.surprise);
+  console.log('[eToro Debug] --- Quarterly fields ---', categories.quarterly);
+  console.log('[eToro Debug] --- TipRanks fields ---', categories.tipranks);
+  console.log('[eToro Debug] --- Sector/Industry fields ---', categories.sector);
+  console.log('[eToro Debug] --- Credit/Debt fields ---', categories.credit);
+  console.log('[eToro Debug] --- Sentiment/News fields ---', categories.sentiment);
+  console.log('[eToro Debug] --- All TTM fields ---', categories.ttm);
+  console.log('[eToro Debug] === Sample values for key fields ===');
+  
+  // Log sample values for potentially useful fields
+  const potentialFields = [
+    'totalRevenue-TTM', 'totalRevenue-Annual',
+    'grossRevenue-TTM', 'revenue-TTM', 'revenuePerShare-TTM',
+    'actualEPS', 'expectedEPS', 'epsSurprise',
+    'lastQuarterEPS', 'quarterlyEarnings',
+    'sectorPE', 'industryPE', 'sp500PE',
+    'creditRating', 'debtRating',
+    'newsSentiment', 'socialSentiment'
+  ];
+  
+  potentialFields.forEach(field => {
+    if (detailedInfo[field] !== undefined) {
+      console.log(`[eToro Debug] ${field}:`, detailedInfo[field]);
+    }
+  });
+  
+  return {
+    totalFields: allKeys.length,
+    allKeys,
+    categories,
+    rawData: detailedInfo
+  };
+}
+
+/**
  * Process historic dividends from eToro into our format
  */
 function processHistoricDividends(historicDividends) {
@@ -377,8 +449,8 @@ export async function fetchEtoroData(symbol) {
       payout_ratio: detailedInfo?.['dividendPayoutRatio-Annual'] || null,
       avg_div_growth_5y: avgDivGrowth5y,
       dividend_years: dividendData.dividend_years,
-      ex_date: dividendData.ex_date || detailedInfo?.lastXDividendDate || null,
-      dividend_pay_date: dividendData.dividend_pay_date || detailedInfo?.dividendPayDate || null,
+      ex_date: detailedInfo?.lastXDividendDate?.split('T')[0] || dividendData.ex_date || null,
+      dividend_pay_date: detailedInfo?.dividendPayDate?.split('T')[0] || dividendData.dividend_pay_date || null,
       div_distribution_sequence: dividendData.div_distribution_sequence || detailedInfo?.dividendFrequency || null,
       dividend_history: dividendData.dividend_history,
       

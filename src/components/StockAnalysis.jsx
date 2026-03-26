@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertTriangle, CheckCircle, Info, AlertCircle as LucideAlertCircle,
-  TrendingUp, Clock, Scale
+  TrendingUp, Clock, Scale, Calendar, CalendarCheck
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,13 +15,33 @@ import NewsSentiment from "./NewsSentiment";
 import AnalystRecommendations from "./AnalystRecommendations";
 import FinancialCharts from "./FinancialCharts";
 
+const formatDividendDate = (dateStr) => {
+  if (!dateStr) return null;
+  try {
+    const cleanDate = dateStr.split('T')[0];
+    const date = new Date(cleanDate + 'T12:00:00');
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+};
+
 // InfoTooltip component (reusable) - supports both hover (desktop) and click (mobile)
 const InfoTooltip = ({ explanation }) => {
   const [open, setOpen] = React.useState(false);
 
+  const handleOpenChange = (newOpen) => {
+    // Only use Radix's open/close for hover-capable devices (desktop)
+    // On touch devices, we control state via onClick only to avoid double-toggle
+    if (window.matchMedia('(hover: hover)').matches) {
+      setOpen(newOpen);
+    }
+  };
+
   return (
     <TooltipProvider>
-      <Tooltip delayDuration={100} open={open} onOpenChange={setOpen}>
+      <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -467,7 +487,7 @@ const StockAnalysis = ({ stock }) => {
                           "Distribution pattern not available."}
                       </p>
                     </div>
-                    <div>
+                    <div className="mb-3">
                       <div className="flex items-center text-sm font-medium text-slate-200 mb-1.5">
                         <TrendingUp className="h-4 w-4 mr-1.5 text-green-400" />
                         <span className="font-semibold">Dividend growth:</span>
@@ -478,6 +498,28 @@ const StockAnalysis = ({ stock }) => {
                           (cleanedDivGrowth5y !== null ? ` with ~${cleanedDivGrowth5y.toFixed(1)}% average annual growth (5yr).` : ".") :
                           "Growth history not available."}
                       </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-600">
+                      <div>
+                        <div className="flex items-center text-sm font-medium text-slate-200 mb-1.5">
+                          <Calendar className="h-4 w-4 mr-1.5 text-green-400" />
+                          <span className="font-semibold">Ex-Dividend Date:</span>
+                          <InfoTooltip explanation="The date when the stock begins trading without the dividend. You must own shares before this date to receive the upcoming dividend." />
+                        </div>
+                        <p className="text-sm text-slate-300 ml-6">
+                          {hasValue('ex_date') ? formatDividendDate(stock.ex_date) : "Not available"}
+                        </p>
+                      </div>
+                      <div>
+                        <div className="flex items-center text-sm font-medium text-slate-200 mb-1.5">
+                          <CalendarCheck className="h-4 w-4 mr-1.5 text-green-400" />
+                          <span className="font-semibold">Pay Date:</span>
+                          <InfoTooltip explanation="The date when the dividend is actually paid to shareholders who owned the stock before the ex-dividend date." />
+                        </div>
+                        <p className="text-sm text-slate-300 ml-6">
+                          {hasValue('dividend_pay_date') ? formatDividendDate(stock.dividend_pay_date) : "Not available"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
