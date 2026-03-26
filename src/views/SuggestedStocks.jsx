@@ -18,7 +18,9 @@ import {
   Crown,
   History,
   Search,
-  // Filter icon is now in FilterSelectComponent
+  PieChart,
+  Star,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { createPageUrl } from "@/utils";
@@ -272,19 +274,54 @@ export default function SuggestedStocks() {
            </div>
         ) : (!isLoading && currentUserEmail !== "" && allStocks.length === 0 ? ( 
           <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] p-4">
-            <Card className="max-w-md mx-auto shadow-lg bg-slate-800 border-slate-700">
-              <CardContent className="p-6 sm:p-8 text-center">
-                <History className="h-12 w-12 sm:h-16 sm:w-16 text-green-400 mx-auto mb-4 sm:mb-6" /> {/* Icon color */}
-                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-slate-100">Your Watchlist is Empty</h3>
-                <p className="text-xs sm:text-sm text-slate-300 mb-4 sm:mb-6">
-                  You haven't analyzed any stocks yet. Stocks you search for and analyze on the Home page will appear here.
+            <Card className="max-w-lg mx-auto shadow-lg bg-slate-800 border-slate-700">
+              <CardContent className="p-6 sm:p-8">
+                <h3 className="text-lg sm:text-xl font-semibold mb-6 text-slate-100 text-center">
+                  Your Watchlist is Empty
+                </h3>
+                
+                <div className="flex items-center justify-center gap-2 sm:gap-4 mb-6">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-700 flex items-center justify-center mb-2">
+                      <Search className="h-6 w-6 sm:h-7 sm:w-7 text-green-400" />
+                    </div>
+                    <span className="text-xs sm:text-sm text-slate-300 font-medium">Search</span>
+                    <span className="text-[10px] sm:text-xs text-slate-500">a stock</span>
+                  </div>
+                  
+                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 text-slate-500 flex-shrink-0" />
+                  
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-700 flex items-center justify-center mb-2">
+                      <PieChart className="h-6 w-6 sm:h-7 sm:w-7 text-green-400" />
+                    </div>
+                    <span className="text-xs sm:text-sm text-slate-300 font-medium">Analyze</span>
+                    <span className="text-[10px] sm:text-xs text-slate-500">results</span>
+                  </div>
+                  
+                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 text-slate-500 flex-shrink-0" />
+                  
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-500/20 border-2 border-green-500/50 flex items-center justify-center mb-2">
+                      <Star className="h-6 w-6 sm:h-7 sm:w-7 text-green-400" />
+                    </div>
+                    <span className="text-xs sm:text-sm text-slate-300 font-medium">Appears</span>
+                    <span className="text-[10px] sm:text-xs text-slate-500">in Watchlist</span>
+                  </div>
+                </div>
+
+                <p className="text-xs sm:text-sm text-slate-400 text-center mb-6 px-2">
+                  Every stock you search is automatically saved to your Watchlist for easy access.
                 </p>
-                <Link href={createPageUrl("Dashboard")}>
-                  <Button className="bg-[#3FB923] hover:bg-green-600 text-white px-4 py-2 text-sm sm:text-base">
-                    <Search className="mr-1.5 h-4 w-4" />
-                    Search & Analyze Stocks
-                  </Button>
-                </Link>
+                
+                <div className="flex justify-center">
+                  <Link href={createPageUrl("Dashboard")}>
+                    <Button className="bg-[#3FB923] hover:bg-green-600 text-white px-5 py-2.5 text-sm sm:text-base">
+                      <Search className="mr-2 h-4 w-4" />
+                      Search Your First Stock
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </div>
