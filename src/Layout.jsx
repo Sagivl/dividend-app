@@ -25,7 +25,7 @@ export default function Layout({ children, currentPageName }) {
       const baseNavItems = [
         {
           name: "Dashboard",
-          displayName: "Home",
+          displayName: "Search",
           path: createPageUrl("Dashboard"),
           icon: Search,
           description: "Analyze stocks"
