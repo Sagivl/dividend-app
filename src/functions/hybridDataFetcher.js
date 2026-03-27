@@ -11,9 +11,13 @@ import { fetchEtoroData, isEtoroAvailable } from './etoroApi';
 function processData(etoroData, existingData = {}) {
   const result = { ...existingData };
   
+  // Fields that should ALWAYS be updated from fresh API data
+  const alwaysUpdateFields = ['market_cap', 'price', 'dividend_yield', 'pe_ratio', 'beta', 'roe'];
+  
   const setIfBetter = (key, value, source) => {
     if (value !== null && value !== undefined && value !== '') {
-      if (result[key] === null || result[key] === undefined || result[key] === '') {
+      // Always update certain fields with fresh data, or update if existing is empty
+      if (alwaysUpdateFields.includes(key) || result[key] === null || result[key] === undefined || result[key] === '') {
         result[key] = value;
         result[`${key}_source`] = source;
       }

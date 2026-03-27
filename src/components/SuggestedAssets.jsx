@@ -31,7 +31,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Added Tooltip imports
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "@/components/ui/use-toast";
 
 // Data validation and cleaning helper
 const cleanDividendGrowthData = (rawGrowth) => {
@@ -273,9 +274,22 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
       }
       setConfigOpen(false);
       await fetchSuggestedAssets(newConfig);
+      
+      toast({
+        title: "Filters saved",
+        description: "Your suggestion criteria have been updated and applied.",
+        variant: "success",
+        duration: 2000,
+      });
     } catch (error) {
       console.error("Error updating config:", error);
       setError("Failed to update configuration");
+      toast({
+        title: "Error",
+        description: "Failed to save filter configuration. Please try again.",
+        variant: "destructive",
+        duration: 4000,
+      });
     } finally {
       setIsUpdatingConfig(false);
     }

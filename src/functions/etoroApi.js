@@ -427,10 +427,57 @@ export async function fetchEtoroData(symbol) {
       isOpen: instrument.isOpen || detailedInfo?.isExchangeOpen || false,
       isCurrentlyTradable: instrument.isCurrentlyTradable || detailedInfo?.isCurrentlyTradable || false,
       
-      // Market cap
-      market_cap: instrument.marketCapInUSD 
-        ? instrument.marketCapInUSD / 1_000_000 
-        : (detailedInfo?.['marketCapitalization-TTM'] ? detailedInfo['marketCapitalization-TTM'] / 1_000_000 : null),
+      // Market cap - ALWAYS prefer calculated from shares × price
+      market_cap: (() => {
+        const sharesOutstanding = detailedInfo?.['sharesOutstanding-Annual'] || 
+                                   detailedInfo?.['commonSharesUsedToCalculateEPSFullyDiluted-Annual'];
+        const price = currentPrice;
+        
+        // BEST: Calculate from shares × price (most reliable)
+        if (sharesOutstanding && price && sharesOutstanding > 0 && price > 0) {
+          const calculatedMarketCap = (sharesOutstanding * price) / 1_000_000; // Convert to millions
+          console.log(`[eToro] Market cap for ${symbol}: $${calculatedMarketCap.toFixed(0)}M (calculated: ${sharesOutstanding.toLocaleString()} shares × $${price})`);
+          return calculatedMarketCap;
+        }
+        
+        // FALLBACK: Use API value with unit detection
+        const rawFromSearch = instrument.marketCapInUSD;
+        const rawFromSapi = detailedInfo?.['marketCapitalization-TTM'];
+        const rawMarketCap = rawFromSearch || rawFromSapi;
+        const source = rawFromSearch ? 'marketCapInUSD' : 'marketCapitalization-TTM';
+        
+        if (!rawMarketCap) {
+          console.log(`[eToro] No market cap data available for ${symbol}`);
+          return null;
+        }
+        
+        console.log(`[eToro] Raw market cap for ${symbol}: ${rawMarketCap} (source: ${source})`);
+        
+        let marketCapInMillions;
+        
+        if (source === 'marketCapInUSD') {
+          // marketCapInUSD is in full dollars, convert to millions
+          marketCapInMillions = rawMarketCap / 1_000_000;
+        } else {
+          // marketCapitalization-TTM: could be in thousands or full dollars
+          // If value > 10 trillion, it's definitely in full dollars or wrong
+          // Most companies are < $5T market cap, so raw values > 5T suggest full dollars
+          if (rawMarketCap > 5_000_000_000_000) {
+            marketCapInMillions = rawMarketCap / 1_000_000;
+            console.log(`[eToro] marketCapitalization-TTM in full dollars for ${symbol}`);
+          } else if (rawMarketCap > 1_000_000) {
+            // Likely in thousands (e.g., 3185121 = $3.185B)
+            marketCapInMillions = rawMarketCap / 1_000;
+            console.log(`[eToro] marketCapitalization-TTM appears to be in thousands for ${symbol}`);
+          } else {
+            // Small value, likely in millions already or billions
+            marketCapInMillions = rawMarketCap > 100 ? rawMarketCap : rawMarketCap * 1000;
+          }
+        }
+        
+        console.log(`[eToro] Final market cap for ${symbol}: $${marketCapInMillions?.toFixed(0)}M`);
+        return marketCapInMillions;
+      })(),
       
       // Identifiers
       isin: instrument.isin || detailedInfo?.isin || null,

@@ -148,17 +148,48 @@ export default function CompareStocks() {
   };
 
   const handleStockSearchSelection = async (ticker) => {
-    // Find the stock in our search results or create a basic stock object
+    // Find the stock in our search results or saved stocks
     let stockToAdd = searchResults.find(s => s.ticker?.toLowerCase() === ticker.toLowerCase());
     
     if (!stockToAdd) {
-      // If not found in search results, try to find it in all stocks
+      // If not found in search results, try to find it in saved stocks
       try {
         setIsLoading(true);
         const allStocks = await Stock.list();
         stockToAdd = allStocks.find(s => s.ticker?.toLowerCase() === ticker.toLowerCase());
       } catch (error) {
         console.error("Error finding stock:", error);
+      }
+    }
+    
+    // If still not found or missing dividend data, fetch from eToro API
+    if (!stockToAdd || !stockToAdd.dividend_yield) {
+      try {
+        setIsLoading(true);
+        const { fetchEtoroData } = await import('@/functions/etoroApi');
+        const etoroData = await fetchEtoroData(ticker);
+        
+        if (etoroData && etoroData.hasData) {
+          stockToAdd = {
+            ticker: ticker.toUpperCase(),
+            name: etoroData.name,
+            price: etoroData.price,
+            dividend_yield: etoroData.dividend_yield,
+            pe_ratio: etoroData.pe_ratio,
+            beta: etoroData.beta,
+            roe: etoroData.roe,
+            payout_ratio: etoroData.payout_ratio,
+            avg_div_growth_5y: etoroData.avg_div_growth_5y,
+            market_cap: etoroData.market_cap,
+            total_debt: etoroData.total_debt,
+            shareholder_equity: etoroData.shareholder_equity,
+            sector: etoroData.sector,
+            logo150x150: etoroData.logo150x150,
+            ...etoroData
+          };
+        }
+      } catch (error) {
+        console.error("Error fetching stock data from eToro:", error);
       }
     }
     

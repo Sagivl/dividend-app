@@ -122,20 +122,21 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
           if (schemaDef.type === 'number' || (schemaDef.type === 'integer')) {
             let numValue = parseFloat(formattedData[key].replace(/,/g, ''));
             
-            // Enhanced conversion logic for market cap and other financial fields
+            // Conversion logic for financial fields
+            // Note: market_cap from etoroApi.js is already correctly in millions
             if (!isNaN(numValue) && fieldsExpectedInMillions.includes(key)) {
               if (key === 'market_cap') {
-                // Special handling for market cap - if it's a reasonable number but seems too small
-                // for a public company (< 10,000 millions = < $10B), it's likely in billions
-                if (numValue > 1 && numValue < 10000) {
-                  // This is likely in billions, convert to millions
-                  numValue = numValue * 1000;
-                } else if (numValue > 5_000_000) {
-                  // This is likely the full dollar amount, convert to millions
+                console.log(`[SaveStock] market_cap input value: ${numValue}`);
+                // market_cap from API is already in millions - don't convert
+                // Only handle manual entry of very large numbers (full dollar amounts)
+                if (numValue > 100_000_000) {
+                  // Likely full dollar amount entered manually, convert to millions
                   numValue = numValue / 1_000_000;
+                  console.log(`[SaveStock] market_cap converted from full dollars to: ${numValue}`);
                 }
+                console.log(`[SaveStock] market_cap final value to save: ${numValue}`);
               } else {
-                // For other fields, use the original logic
+                // For other fields, convert very large values
                 if (numValue > 5_000_000) {
                   numValue = numValue / 1_000_000;
                 }
@@ -297,6 +298,9 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
       if (result.success) {
         const fetchedData = result.data;
         
+        // DEBUG: Log market_cap from API
+        console.log(`[DEBUG] Raw market_cap from API: ${fetchedData.market_cap} (type: ${typeof fetchedData.market_cap})`);
+        
         const processedData = { ...fetchedData };
         
         Object.keys(processedData).forEach(key => {
@@ -305,6 +309,9 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
             processedData[key] = value.toString();
           }
         });
+
+        // DEBUG: Log market_cap after string conversion
+        console.log(`[DEBUG] market_cap after toString: ${processedData.market_cap}`);
 
         if (!processedData.ticker) {
           processedData.ticker = tickerToFetch.toUpperCase();

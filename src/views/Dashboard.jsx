@@ -120,6 +120,9 @@ export default function Dashboard() {
     
     try {
       const ticker = query.toUpperCase().trim();
+      
+      // Update the last processed search to prevent duplicate processing
+      lastProcessedSearch.current = ticker;
       const normalizedQuery = query.toLowerCase().trim();
       
       // Update URL using Next.js router
@@ -215,16 +218,12 @@ export default function Dashboard() {
     
     const tickerFromUrl = searchParams?.get("ticker");
     const tabFromUrl = searchParams?.get("tab");
-    const currentSearchKey = `${tickerFromUrl || ""}-${tabFromUrl || ""}`;
     
-    // Only process if the search params have actually changed
-    if (currentSearchKey !== lastProcessedSearch.current) {
-      lastProcessedSearch.current = currentSearchKey;
-      
-      if (tickerFromUrl) {
-        console.log("Processing URL ticker:", tickerFromUrl, "tab:", tabFromUrl);
-        handleSearch(tickerFromUrl, tabFromUrl || "analysis");
-      }
+    // Only process if the TICKER has changed - tab changes are handled by onValueChange
+    if (tickerFromUrl && tickerFromUrl.toUpperCase() !== lastProcessedSearch.current) {
+      lastProcessedSearch.current = tickerFromUrl.toUpperCase();
+      console.log("Processing URL ticker:", tickerFromUrl, "tab:", tabFromUrl);
+      handleSearch(tickerFromUrl, tabFromUrl || "analysis");
     }
   }, [isInitialStocksLoading, searchParams, handleSearch]);
 
