@@ -634,14 +634,14 @@ Focus on dividend sustainability, growth potential, financial strength, and over
             </div>
         </div>
 
-        {/* Mobile Sticky Header - Only on Mobile */}
-        <div className="sticky top-16 bg-slate-900/95 backdrop-blur-sm z-10 border-b border-slate-700 py-3 px-3 mb-6 sm:hidden">
-          <div className="flex items-center gap-2.5">
-            <BarChart2 className="h-5 w-5 text-green-400 flex-shrink-0" />
-            <div>
-              <h2 className="text-lg font-semibold text-slate-100">Compare Dividend Stocks</h2>
-              <p className="text-sm text-slate-300">Select 2 to 4 stocks for a side-by-side AI-powered analysis.</p>
-            </div>
+        {/* Mobile Header - Only on Mobile */}
+        <div className="flex items-center gap-2.5 mb-6 sm:hidden">
+          <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 flex-shrink-0">
+            <BarChart2 className="h-5 w-5 text-green-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">Compare Dividend Stocks</h2>
+            <p className="text-xs text-slate-400">Select 2 to 4 stocks for AI analysis.</p>
           </div>
         </div>
 
