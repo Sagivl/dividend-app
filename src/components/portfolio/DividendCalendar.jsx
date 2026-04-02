@@ -9,7 +9,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, DollarSign } from "lucide-react";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Calendar as CalendarIcon, 
+  DollarSign,
+  TrendingUp
+} from "lucide-react";
 import { 
   format, 
   startOfMonth, 
@@ -65,10 +71,7 @@ function estimatePaymentDates(stock, year) {
     try {
       const payDate = parseISO(stock.dividend_pay_date);
       if (isValid(payDate)) {
-        dates.push({
-          date: payDate,
-          type: 'payment'
-        });
+        dates.push({ date: payDate, type: 'payment' });
       }
     } catch (e) {}
   }
@@ -77,18 +80,13 @@ function estimatePaymentDates(stock, year) {
     try {
       const exDate = parseISO(stock.ex_date);
       if (isValid(exDate)) {
-        dates.push({
-          date: exDate,
-          type: 'ex-dividend'
-        });
+        dates.push({ date: exDate, type: 'ex-dividend' });
       }
     } catch (e) {}
   }
 
   if (dates.length === 0) {
     const frequency = getPaymentFrequency(stock.div_distribution_sequence);
-    const monthsPerPayment = 12 / frequency;
-    
     const startMonths = frequency === 12 
       ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
       : frequency === 4 
@@ -124,12 +122,12 @@ export default function DividendCalendar({ positions, stocksMap }) {
     const year = currentMonth.getFullYear();
 
     positions.forEach(position => {
-      const stock = position.stock || stocksMap[position.ticker];
+      const stock = position.stock || stocksMap?.[position.ticker];
       if (!stock) return;
 
       const paymentDates = estimatePaymentDates(stock, year);
       const frequency = getPaymentFrequency(stock.div_distribution_sequence);
-      const paymentAmount = position.annualIncome / frequency;
+      const paymentAmount = (position.annualIncome || 0) / frequency;
 
       paymentDates.forEach(({ date, type }) => {
         events.push({
@@ -149,7 +147,6 @@ export default function DividendCalendar({ positions, stocksMap }) {
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  
   const startPadding = getDay(monthStart);
   const paddingDays = Array(startPadding).fill(null);
 
@@ -163,12 +160,14 @@ export default function DividendCalendar({ positions, stocksMap }) {
     isSameMonth(event.date, currentMonth)
   );
 
+  const sortedMonthEvents = [...monthEvents].sort((a, b) => a.date - b.date);
   const monthTotal = monthEvents.reduce((sum, event) => sum + event.amount, 0);
 
   const goToPreviousMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const goToToday = () => setCurrentMonth(new Date());
 
+  // Empty state
   if (positions.length === 0) {
     return (
       <Card className="bg-card/50">
@@ -185,155 +184,47 @@ export default function DividendCalendar({ positions, stocksMap }) {
     );
   }
 
-  const sortedMonthEvents = [...monthEvents].sort((a, b) => a.date - b.date);
-
   return (
-    <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-4 lg:gap-6">
-      {/* Month Summary - Shows first on mobile */}
-      <div className="lg:order-2 space-y-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                {format(currentMonth, "MMMM")} Summary
-              </CardTitle>
-              {/* Mobile month navigation */}
-              <div className="flex items-center gap-1 lg:hidden">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPreviousMonth}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextMonth}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+    <div className="space-y-4">
+      {/* Month Navigation & Summary Header */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div className="text-center">
+              <h2 className="text-lg font-semibold">
+                {format(currentMonth, "MMMM yyyy")}
+              </h2>
+              <button 
+                onClick={goToToday}
+                className="text-xs text-primary hover:underline"
+              >
+                Go to today
+              </button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-500 mb-2">
-              {formatCurrency(monthTotal)}
-            </div>
-            <div className="text-sm text-muted-foreground mb-4">
-              Expected dividend income
-            </div>
-            
-            {monthEvents.length > 0 ? (
-              <div className="space-y-2">
-                {Object.entries(
-                  monthEvents.reduce((acc, event) => {
-                    if (!acc[event.ticker]) {
-                      acc[event.ticker] = { 
-                        amount: 0, 
-                        color: event.color,
-                        events: []
-                      };
-                    }
-                    acc[event.ticker].amount += event.amount;
-                    acc[event.ticker].events.push(event);
-                    return acc;
-                  }, {})
-                ).map(([ticker, data]) => (
-                  <div key={ticker} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", data.color)} />
-                      <span className="text-sm font-medium">{ticker}</span>
-                    </div>
-                    <span className="text-sm text-green-500">
-                      {formatCurrency(data.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No dividend payments expected this month.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Legend - hidden on mobile */}
-        <Card className="hidden lg:block">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Legend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {positions.map(pos => (
-                <div key={pos.ticker} className="flex items-center gap-2">
-                  <div className={cn("w-3 h-3 rounded", tickerColorMap[pos.ticker])} />
-                  <span className="text-sm">{pos.ticker}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Mobile List View */}
-      <div className="lg:hidden space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground px-1">
-          Upcoming Dividends
-        </h3>
-        {sortedMonthEvents.length > 0 ? (
-          sortedMonthEvents.map((event, idx) => (
-            <Card key={`${event.ticker}-${idx}`} className="bg-card/50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm", event.color)}>
-                      {event.ticker.slice(0, 2)}
-                    </div>
-                    <div>
-                      <div className="font-medium">{event.ticker}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {format(event.date, "MMM d, yyyy")}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-green-500">
-                      {formatCurrency(event.amount)}
-                    </div>
-                    <Badge variant={event.type === 'ex-dividend' ? 'secondary' : 'outline'} className="text-xs">
-                      {event.type === 'ex-dividend' ? 'Ex-Div' : 
-                       event.type === 'estimated' ? 'Est.' : 'Payment'}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card className="bg-card/50">
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No dividend payments expected this month.
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Desktop Calendar View */}
-      <Card className="hidden lg:block lg:col-span-3 lg:order-1">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
-              {format(currentMonth, "MMMM yyyy")}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goToToday}>
-                Today
-              </Button>
-              <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={goToNextMonth}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button variant="ghost" size="icon" onClick={goToNextMonth}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
           </div>
-        </CardHeader>
-        <CardContent>
+          
+          {/* Monthly Total */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-500" />
+              <span className="text-sm font-medium">Expected Income</span>
+            </div>
+            <span className="text-xl font-bold text-green-500">
+              {formatCurrency(monthTotal)}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Desktop Calendar Grid */}
+      <Card className="hidden md:block">
+        <CardContent className="p-4">
           <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
               <div 
@@ -357,12 +248,12 @@ export default function DividendCalendar({ positions, stocksMap }) {
                   key={day.toISOString()} 
                   className={cn(
                     "bg-background p-2 min-h-[80px] relative",
-                    isToday && "bg-primary/5"
+                    isToday && "bg-primary/5 ring-1 ring-primary/20"
                   )}
                 >
                   <span className={cn(
-                    "text-sm",
-                    isToday && "font-bold text-primary"
+                    "text-sm inline-flex items-center justify-center w-6 h-6 rounded-full",
+                    isToday && "bg-primary text-primary-foreground font-bold"
                   )}>
                     {format(day, "d")}
                   </span>
@@ -398,7 +289,11 @@ export default function DividendCalendar({ positions, stocksMap }) {
                                   </div>
                                 </div>
                               </div>
-                              <div className="border-t pt-2">
+                              <div className="border-t pt-2 space-y-1">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Date:</span>
+                                  <span>{format(event.date, "MMM d, yyyy")}</span>
+                                </div>
                                 <div className="flex justify-between text-sm">
                                   <span className="text-muted-foreground">Type:</span>
                                   <Badge variant={event.type === 'ex-dividend' ? 'secondary' : 'default'}>
@@ -406,8 +301,8 @@ export default function DividendCalendar({ positions, stocksMap }) {
                                      event.type === 'estimated' ? 'Estimated' : 'Payment'}
                                   </Badge>
                                 </div>
-                                <div className="flex justify-between text-sm mt-1">
-                                  <span className="text-muted-foreground">Expected:</span>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Amount:</span>
                                   <span className="font-semibold text-green-500">
                                     {formatCurrency(event.amount)}
                                   </span>
@@ -430,6 +325,80 @@ export default function DividendCalendar({ positions, stocksMap }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mobile List View */}
+      <div className="md:hidden space-y-3">
+        {sortedMonthEvents.length > 0 ? (
+          <>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {sortedMonthEvents.length} dividend{sortedMonthEvents.length !== 1 ? 's' : ''} this month
+            </h3>
+            {sortedMonthEvents.map((event, idx) => (
+              <Card key={`${event.ticker}-${idx}`} className="bg-card/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0",
+                      event.color
+                    )}>
+                      {event.ticker.slice(0, 3)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold">{event.ticker}</span>
+                        <span className="font-bold text-green-500">
+                          {formatCurrency(event.amount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-sm text-muted-foreground">
+                          {format(event.date, "EEEE, MMM d")}
+                        </span>
+                        <Badge 
+                          variant={event.type === 'ex-dividend' ? 'secondary' : 'outline'} 
+                          className="text-xs"
+                        >
+                          {event.type === 'ex-dividend' ? 'Ex-Div' : 
+                           event.type === 'estimated' ? 'Est.' : 'Pay'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        ) : (
+          <Card className="bg-card/50">
+            <CardContent className="py-12 text-center">
+              <CalendarIcon className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">
+                No dividend payments expected in {format(currentMonth, "MMMM")}.
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Try navigating to a different month.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Stock Legend */}
+      {positions.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">Your Stocks</h3>
+            <div className="flex flex-wrap gap-3">
+              {positions.map(pos => (
+                <div key={pos.ticker} className="flex items-center gap-2">
+                  <div className={cn("w-3 h-3 rounded", tickerColorMap[pos.ticker])} />
+                  <span className="text-sm font-medium">{pos.ticker}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
