@@ -9,6 +9,7 @@ import StockDataInput from "../components/StockDataInput";
 import StockAnalysis from "../components/StockAnalysis";
 import SuggestedAssets from "../components/SuggestedAssets";
 import OnboardingModal from "../components/OnboardingModal";
+import WatchlistButton from "../components/WatchlistButton";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, PieChart, Loader2, CheckCircle } from "lucide-react";
@@ -37,9 +38,11 @@ export default function Dashboard() {
         const user = await User.me();
         setCurrentUser(user);
         
-        // For new users: seed sample stocks and show onboarding
+        // Seed sample stocks (will skip if already seeded with current version)
+        await Stock.seedSampleStocks();
+        
+        // For new users: show onboarding
         if (user.is_new_user && !user.onboarding_completed) {
-          await Stock.seedSampleStocks();
           setShowOnboarding(true);
         }
       } catch (error) {
@@ -149,58 +152,51 @@ export default function Dashboard() {
         }
       }
       
-      // Determine if we need to fetch fresh data
-      const needsFetch = !existingStock || !existingStock.price || isDataStale(existingStock);
+      // Always fetch fresh data for analysis view to ensure up-to-date prices
+      // This ensures consistency between the analysis page and suggestion cards
+      console.log("Fetching fresh data for:", ticker);
       
-      if (needsFetch) {
-        console.log("Fetching fresh data for:", ticker);
+      const result = await fetchHybridStockData(ticker, existingStock || { ticker });
+      
+      if (result.success && result.data) {
+        const user = await User.me();
+        let savedStock;
         
-        const result = await fetchHybridStockData(ticker, existingStock || { ticker });
-        
-        if (result.success && result.data) {
-          const user = await User.me();
-          let savedStock;
-          
-          if (existingStock?.id) {
-            console.log("Updating existing stock:", existingStock.id);
-            savedStock = await Stock.update(existingStock.id, result.data);
-          } else {
-            console.log("Creating new stock:", ticker);
-            savedStock = await Stock.create({ 
-              ...result.data, 
-              ticker,
-              created_by: user?.email 
-            });
-          }
-          
-          // Update local state efficiently
-          setStocks(prevStocks => {
-            const index = prevStocks.findIndex(s => s.id === savedStock.id);
-            if (index > -1) {
-              const newStocks = [...prevStocks];
-              newStocks[index] = savedStock;
-              return newStocks;
-            } else {
-              return [savedStock, ...prevStocks];
-            }
-          });
-          
-          setSelectedStock(savedStock);
-          setActiveTab("analysis");
+        if (existingStock?.id) {
+          console.log("Updating existing stock:", existingStock.id);
+          savedStock = await Stock.update(existingStock.id, result.data);
         } else {
-          console.log("Fetch failed, using existing data or fallback");
-          if (existingStock) {
-            setSelectedStock(existingStock);
-            setActiveTab(existingStock.price ? "analysis" : "input");
-          } else {
-            setSelectedStock({ ticker });
-            setActiveTab("input");
-          }
+          console.log("Creating new stock:", ticker);
+          savedStock = await Stock.create({ 
+            ...result.data, 
+            ticker,
+            created_by: user?.email 
+          });
         }
-      } else {
-        console.log("Using cached data for:", existingStock.ticker);
-        setSelectedStock(existingStock);
+        
+        // Update local state efficiently
+        setStocks(prevStocks => {
+          const index = prevStocks.findIndex(s => s.id === savedStock.id);
+          if (index > -1) {
+            const newStocks = [...prevStocks];
+            newStocks[index] = savedStock;
+            return newStocks;
+          } else {
+            return [savedStock, ...prevStocks];
+          }
+        });
+        
+        setSelectedStock(savedStock);
         setActiveTab("analysis");
+      } else {
+        console.log("Fetch failed, using existing data or fallback");
+        if (existingStock) {
+          setSelectedStock(existingStock);
+          setActiveTab(existingStock.price ? "analysis" : "input");
+        } else {
+          setSelectedStock({ ticker });
+          setActiveTab("input");
+        }
       }
     } catch (error) {
       console.error("Error in search:", error);
@@ -236,6 +232,13 @@ export default function Dashboard() {
     if (!tickerFromUrl && selectedStock) {
       setSelectedStock(null);
       setActiveTab("input");
+      // Force reload stocks from localStorage to get any updates made during analysis view
+      // Use a slight delay to ensure the state updates are processed
+      setTimeout(async () => {
+        console.log("Force reloading stocks from localStorage after navigation");
+        const freshStocks = await Stock.list("-last_updated");
+        setStocks(freshStocks || []);
+      }, 50);
     }
   }, [searchParams, isInitialStocksLoading, selectedStock]);
 
@@ -358,7 +361,11 @@ export default function Dashboard() {
         {/* Suggested Assets - Only when no stock selected */}
         {!selectedStock && !isLoading && !isInitialStocksLoading && (
           <div className="max-w-7xl mx-auto px-2 sm:px-0">
-            <SuggestedAssets stocks={stocks} onRefresh={loadAllStocks} />
+            <SuggestedAssets 
+              key={`suggestions-${stocks.length}-${stocks.slice(0, 5).map(s => s.last_updated || '').join('-')}`}
+              stocks={stocks} 
+              onRefresh={loadAllStocks} 
+            />
           </div>
         )}
         
@@ -390,6 +397,16 @@ export default function Dashboard() {
             }}
             className="space-y-4"
           >
+            {/* Stock Header with Watchlist Button */}
+            {selectedStock.ticker && (
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-100">
+                  {selectedStock.ticker.toUpperCase()}
+                </h2>
+                <WatchlistButton ticker={selectedStock.ticker} size="md" />
+              </div>
+            )}
+            
             <div className="flex justify-center">
               <TabsList className="bg-slate-800 rounded-lg flex w-full sm:w-auto border border-slate-700">
                 <TabsTrigger 

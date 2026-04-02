@@ -35,7 +35,7 @@ export default function Layout({ children, currentPageName }) {
           displayName: "Watchlist",
           path: createPageUrl("SuggestedStocks"),
           icon: Star,
-          description: "View analyzed stocks"
+          description: "View your watchlist"
         },
         {
             name: "CompareStocks",
@@ -89,14 +89,14 @@ export default function Layout({ children, currentPageName }) {
               <nav className="hidden sm:flex space-x-1 md:space-x-3">
                 {navItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = currentPageName === item.name; 
+                  const isActive = currentPageName === item.name;
                   
                   return (
                     <Link
                       key={item.name}
                       href={item.path}
                       title={item.displayName || item.name}
-                      className={`flex items-center px-2 py-2 md:px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      className={`flex items-center px-2 py-2 md:px-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
                         isActive
                           ? "bg-primary/15 text-primary"
                           : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -178,7 +178,7 @@ export default function Layout({ children, currentPageName }) {
                           key={item.name + "-mobile"}
                           href={item.path}
                           title={item.description}
-                          className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${ 
+                          className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset relative ${ 
                               isActive 
                                 ? "text-primary"
                                 : "text-muted-foreground hover:text-primary/80"

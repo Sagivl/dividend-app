@@ -1,6 +1,36 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Search, Clock, XCircle, Loader2, PlusCircle, Building2 } from "lucide-react";
+
+// Data freshness helper
+const getDataFreshness = (lastUpdated) => {
+  if (!lastUpdated) return { label: '', color: 'text-slate-500' };
+  
+  const now = Date.now();
+  const updated = new Date(lastUpdated).getTime();
+  const diffMs = now - updated;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  
+  let label;
+  if (diffMins < 1) {
+    label = 'now';
+  } else if (diffMins < 60) {
+    label = `${diffMins}m`;
+  } else if (diffHours < 24) {
+    label = `${diffHours}h`;
+  } else {
+    label = `${Math.floor(diffHours / 24)}d`;
+  }
+  
+  if (diffHours < 1) {
+    return { label, color: 'text-green-400' };
+  } else if (diffHours < 24) {
+    return { label, color: 'text-yellow-400' };
+  } else {
+    return { label, color: 'text-red-400' };
+  }
+};
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { User } from "@/entities/User";
@@ -365,25 +395,31 @@ const StockSearch = ({ onSearch, isLoading, setIsLoading, stocks }) => {
                           <div className="px-2 py-1">
                             <span className="text-xs text-slate-400 font-medium">Your Saved Stocks</span>
                           </div>
-                          {liveResults.map(stock => (
-                            <div key={stock.id} onClick={() => handleResultClick(stock)} className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-slate-700 rounded-md">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-100 truncate">
-                                  <HighlightMatch text={stock.ticker} highlight={query} />
-                                </p>
-                                <p className="text-sm text-slate-400 truncate">
-                                  <HighlightMatch text={stock.name} highlight={query} />
-                                </p>
+                          {liveResults.map(stock => {
+                            const freshness = getDataFreshness(stock.last_updated || stock.updated_at);
+                            return (
+                              <div key={`${stock.id}-${stock.last_updated || ''}`} onClick={() => handleResultClick(stock)} className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-slate-700 rounded-md">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-slate-100 truncate">
+                                    <HighlightMatch text={stock.ticker} highlight={query} />
+                                  </p>
+                                  <p className="text-sm text-slate-400 truncate">
+                                    <HighlightMatch text={stock.name} highlight={query} />
+                                  </p>
+                                </div>
+                                <div className="ml-auto text-right flex-shrink-0">
+                                  {stock.price !== null && stock.price !== undefined ? (
+                                      <p className="font-medium text-green-400">${parseFloat(stock.price).toFixed(2)}</p>
+                                  ) : (
+                                      <p className="text-xs text-slate-500">N/A</p>
+                                  )}
+                                  {freshness.label && (
+                                    <p className={`text-[10px] ${freshness.color}`}>{freshness.label}</p>
+                                  )}
+                                </div>
                               </div>
-                              <div className="ml-auto text-right flex-shrink-0">
-                                {stock.price !== null && stock.price !== undefined ? (
-                                    <p className="font-medium text-green-400">${parseFloat(stock.price).toFixed(2)}</p>
-                                ) : (
-                                    <p className="text-xs text-slate-500">N/A</p>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </>
                       )}
 

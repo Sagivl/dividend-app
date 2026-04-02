@@ -14,6 +14,8 @@ import {
 import NewsSentiment from "./NewsSentiment";
 import AnalystRecommendations from "./AnalystRecommendations";
 import FinancialCharts from "./FinancialCharts";
+import StockLogo from "./StockLogo";
+import WatchlistButton from "./WatchlistButton";
 
 const formatDividendDate = (dateStr) => {
   if (!dateStr) return null;
@@ -320,22 +322,28 @@ const StockAnalysis = ({ stock }) => {
           {hasPriceAnalysisData ? (
             <Card className="bg-slate-800 border border-slate-700">
               <CardHeader className="pb-2 sm:pb-3">
-                <CardTitle className="text-lg sm:text-xl font-bold text-slate-100">Price Analysis</CardTitle>
-                {hasValue('ticker') && (
-                  <div className="text-xs sm:text-sm text-slate-300 flex flex-col sm:flex-row sm:items-center mt-1 sm:mt-2 space-y-1 sm:space-y-0">
-                    <div className="flex items-center">
-                      <span className="font-semibold text-slate-100">{stock.ticker.toUpperCase()}</span>
-                      {hasValue('exchange') && (
-                        <span className="ml-1 text-slate-400">({stock.exchange})</span>
-                      )}
-                    </div>
-                    {hasValue('name') && (
-                      <span className="sm:ml-2 text-slate-300 font-normal line-clamp-1 break-words">
-                        {stock.name}
-                      </span>
+                <div className="flex items-start gap-3">
+                  <StockLogo stock={stock} size="lg" />
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-lg sm:text-xl font-bold text-slate-100">Price Analysis</CardTitle>
+                    {hasValue('ticker') && (
+                      <div className="text-xs sm:text-sm text-slate-300 flex flex-col sm:flex-row sm:items-center mt-1 sm:mt-2 space-y-1 sm:space-y-0">
+                        <div className="flex items-center">
+                          <span className="font-semibold text-slate-100">{stock.ticker.toUpperCase()}</span>
+                          {hasValue('exchange') && (
+                            <span className="ml-1 text-slate-400">({stock.exchange})</span>
+                          )}
+                          <WatchlistButton ticker={stock.ticker} size="sm" className="ml-2" />
+                        </div>
+                        {hasValue('name') && (
+                          <span className="sm:ml-2 text-slate-300 font-normal line-clamp-1 break-words">
+                            {stock.name}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
+                </div>
               </CardHeader>
               <CardContent className="pt-2 sm:pt-4">
                 <div className="bg-slate-700/50 p-3 sm:p-4 rounded-lg">

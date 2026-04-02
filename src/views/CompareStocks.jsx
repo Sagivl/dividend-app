@@ -9,7 +9,8 @@ import { X, Plus, BarChart2, Loader2, Info as InfoIcon, Check, ArrowLeft } from 
 import { generateStockComparison, hasOpenAIKey } from "@/functions/aiAnalysis";
 import StockSearch from "../components/StockSearch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import MarketCapDisplay from "../components/MarketCapDisplay"; // New import for MarketCapDisplay
+import MarketCapDisplay from "../components/MarketCapDisplay";
+import StockLogo from "../components/StockLogo";
 
 // MetricTooltip component definition - supports both hover (desktop) and click (mobile)
 const MetricTooltip = ({ explanation }) => {
@@ -474,8 +475,13 @@ Focus on dividend sustainability, growth potential, financial strength, and over
                       <th className="text-left p-3 text-slate-300 min-w-[120px]">Metrics</th>
                       {selectedStocks.map(stock => (
                         <th key={stock.id} className="text-center p-3 text-slate-300 min-w-[120px]">
-                          <div className="font-medium text-sm">{stock.ticker}</div>
-                          <div className="text-xs text-slate-400 font-normal truncate max-w-[100px]">{stock.name}</div>
+                          <div className="flex flex-col items-center gap-2">
+                            <StockLogo stock={stock} size="md" />
+                            <div>
+                              <div className="font-medium text-sm">{stock.ticker}</div>
+                              <div className="text-xs text-slate-400 font-normal truncate max-w-[100px]">{stock.name}</div>
+                            </div>
+                          </div>
                         </th>
                       ))}
                     </tr>
@@ -569,13 +575,16 @@ Focus on dividend sustainability, growth potential, financial strength, and over
                   <div className="mb-6">
                     <h3 className="font-semibold text-slate-100 mb-4">Stock Rankings</h3>
                     <div className="grid gap-4">
-                      {comparison.ranking.map((stock, index) => (
+                      {comparison.ranking.map((stock, index) => {
+                        const fullStock = selectedStocks.find(s => s.ticker?.toLowerCase() === stock.ticker?.toLowerCase());
+                        return (
                         <div key={stock.ticker} className="p-4 bg-slate-700 rounded-lg">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
                               <Badge className={getRankColor(stock.rank)}>
                                 #{stock.rank}
                               </Badge>
+                              <StockLogo stock={fullStock} size="sm" />
                               <h4 className="font-semibold text-slate-100">{stock.ticker}</h4>
                               {stock.score && (
                                 <span className="text-sm text-slate-400">Score: {stock.score}/100</span>
@@ -613,7 +622,8 @@ Focus on dividend sustainability, growth potential, financial strength, and over
                             </div>
                           </div>
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
                   </div>
                 )}
@@ -724,17 +734,20 @@ Focus on dividend sustainability, growth potential, financial strength, and over
                         }`}
                       >
                         <div className="flex justify-between items-start">
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`font-semibold text-lg ${isSelected ? 'text-green-300' : 'text-slate-100'}`}>
-                              {stock.ticker}
-                              {isSelected && <Check className="inline ml-2 h-5 w-5 text-green-400" />}
-                            </h4>
-                            <p className={`text-sm mb-2 truncate ${isSelected ? 'text-green-400' : 'text-slate-400'}`}>
-                              {stock.name}
-                            </p>
-                            <p className="text-base font-medium text-green-400">
-                              Yield: {stock.dividend_yield ? `${parseFloat(stock.dividend_yield).toFixed(2)}%` : 'N/A'}
-                            </p>
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <StockLogo stock={stock} size="md" />
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`font-semibold text-lg ${isSelected ? 'text-green-300' : 'text-slate-100'}`}>
+                                {stock.ticker}
+                                {isSelected && <Check className="inline ml-2 h-5 w-5 text-green-400" />}
+                              </h4>
+                              <p className={`text-sm mb-2 truncate ${isSelected ? 'text-green-400' : 'text-slate-400'}`}>
+                                {stock.name}
+                              </p>
+                              <p className="text-base font-medium text-green-400">
+                                Yield: {stock.dividend_yield ? `${parseFloat(stock.dividend_yield).toFixed(2)}%` : 'N/A'}
+                              </p>
+                            </div>
                           </div>
                           <div className="ml-3 flex-shrink-0">
                             {!isSelected && (

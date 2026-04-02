@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'dividend_app_stocks';
+const SAMPLE_VERSION_KEY = 'dividend_app_sample_version';
+const CURRENT_SAMPLE_VERSION = '2'; // Increment this to force re-seed
 
 const getStoredStocks = () => {
   if (typeof window === 'undefined') return [];
@@ -63,13 +65,42 @@ export const Stock = {
         dividend_history: { type: 'array' },
         eps_surprise_history: { type: 'array' },
         news_sentiment: { type: 'object' },
-        analyst_recommendation: { type: 'object' }
+        analyst_recommendation: { type: 'object' },
+        logo50x50: { type: 'string' },
+        logo150x150: { type: 'string' }
       }
     };
   },
 
   async list(sortBy = '-last_updated') {
-    const stocks = getStoredStocks();
+    let stocks = getStoredStocks();
+    
+    // De-duplicate by ticker, keeping the most recently updated version
+    const stocksByTicker = new Map();
+    stocks.forEach(stock => {
+      if (!stock.ticker) return;
+      const ticker = stock.ticker.toUpperCase();
+      const existing = stocksByTicker.get(ticker);
+      if (!existing) {
+        stocksByTicker.set(ticker, stock);
+      } else {
+        // Keep the one with the most recent last_updated timestamp
+        const existingDate = new Date(existing.last_updated || 0);
+        const newDate = new Date(stock.last_updated || 0);
+        if (newDate > existingDate) {
+          stocksByTicker.set(ticker, stock);
+        }
+      }
+    });
+    
+    // If duplicates were found, save the cleaned data back to localStorage
+    const uniqueStocks = Array.from(stocksByTicker.values());
+    if (uniqueStocks.length < stocks.length) {
+      console.log(`Cleaned up ${stocks.length - uniqueStocks.length} duplicate stock entries`);
+      saveStocks(uniqueStocks);
+    }
+    stocks = uniqueStocks;
+    
     if (sortBy.startsWith('-')) {
       const field = sortBy.slice(1);
       stocks.sort((a, b) => {
@@ -136,8 +167,18 @@ export const Stock = {
 
   async seedSampleStocks() {
     const existing = getStoredStocks();
-    if (existing.length === 0) {
+    const storedVersion = typeof window !== 'undefined' ? localStorage.getItem(SAMPLE_VERSION_KEY) : null;
+    const needsReseed = existing.length === 0 || storedVersion !== CURRENT_SAMPLE_VERSION;
+    
+    if (needsReseed) {
       try {
+        // Clear existing sample stocks if upgrading version
+        if (storedVersion !== CURRENT_SAMPLE_VERSION && existing.length > 0) {
+          const nonSampleStocks = existing.filter(s => !s.is_sample);
+          saveStocks(nonSampleStocks);
+          console.log(`Cleared old sample stocks, keeping ${nonSampleStocks.length} user stocks`);
+        }
+        
         const sampleStocksModule = await import('@/data/sampleStocks');
         const sampleStocks = sampleStocksModule.default;
         
@@ -145,7 +186,12 @@ export const Stock = {
           await this.create({ ...stock, is_sample: true });
         }
         
-        console.log(`Seeded ${sampleStocks.length} sample stocks for new user`);
+        // Save the current version
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(SAMPLE_VERSION_KEY, CURRENT_SAMPLE_VERSION);
+        }
+        
+        console.log(`Seeded ${sampleStocks.length} sample stocks (version ${CURRENT_SAMPLE_VERSION})`);
         return true;
       } catch (error) {
         console.error('Error seeding sample stocks:', error);

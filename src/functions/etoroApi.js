@@ -13,45 +13,12 @@ const ETORO_SAPI_PROXY = '/etoro-api/sapi';
  * Search for an instrument by ticker symbol (basic search to get instrumentId)
  */
 export async function searchBySymbol(symbol) {
-  const fields = [
-    'instrumentId',
-    'internalInstrumentDisplayName',
-    'internalSymbolFull',
-    'internalAssetClassName',
-    'internalStockIndustryName',
-    'currentRate',
-    'logo50x50',
-    'logo150x150',
-    'dailyPriceChange',
-    'weeklyPriceChange',
-    'monthlyPriceChange',
-    'threeMonthPriceChange',
-    'sixMonthPriceChange',
-    'oneYearPriceChange',
-    'lastTwoYearsPriceChange',
-    'isOpen',
-    'isCurrentlyTradable',
-    'isBuyEnabled',
-    'marketCapInUSD',
-    'isin',
-    'cusip',
-    // EPS and earnings fields
-    'epS-TTM',
-    'epS-Annual',
-    'epsFullyDiluted-TTM',
-    'epsGrowth1Year',
-    'epsGrowth5Years',
-    'quarterlyEPSValue',
-    'annualEPSValue',
-    'nextEarningEstimateAverage',
-    'lastEarningEstimateAverage',
-    'earningsGrowth-TTM',
-    'nextEarningDate',
-    'daysTillNextEarningReport'
-  ].join(',');
-
+  // NOTE: Do NOT include &fields= parameter in the search URL
+  // The eToro API has a bug where including fields causes it to only return instrumentId
+  // Without fields, we get all the data we need including internalSymbolFull for matching
+  
   try {
-    const url = `${ETORO_PROXY}/api/v1/market-data/search?internalSymbolFull=${encodeURIComponent(symbol)}&pageSize=5&fields=${fields}`;
+    const url = `${ETORO_PROXY}/api/v1/market-data/search?internalSymbolFull=${encodeURIComponent(symbol)}&pageSize=15`;
     console.log('[eToro] Searching for symbol:', symbol);
     
     const response = await fetch(url);
@@ -62,11 +29,51 @@ export async function searchBySymbol(symbol) {
     const data = await response.json();
     const items = data?.items || [];
     
+    // Priority 1: Exact symbol match (case-insensitive)
     const exactMatch = items.find(
       item => item.internalSymbolFull?.toUpperCase() === symbol.toUpperCase()
     );
     
-    return exactMatch || items[0] || null;
+    if (exactMatch) {
+      console.log('[eToro] Found exact match for:', symbol, '- instrumentId:', exactMatch.instrumentId);
+      return exactMatch;
+    }
+    
+    // Priority 2: Prefer stocks over futures/options/indices
+    // Filter to only include stocks (not VIX futures, options, etc.)
+    const stockItems = items.filter(item => {
+      const assetClass = item.internalAssetClassName?.toLowerCase() || '';
+      const displayName = item.internalInstrumentDisplayName?.toLowerCase() || '';
+      const symbolFull = item.internalSymbolFull?.toLowerCase() || '';
+      
+      // Exclude futures, options, indices, and volatility products
+      const isFuture = assetClass.includes('future') || displayName.includes('future');
+      const isOption = assetClass.includes('option') || displayName.includes('option');
+      const isIndex = assetClass.includes('index') || symbolFull.includes('vix');
+      const isVolatility = displayName.includes('volatility') || displayName.includes('vix');
+      
+      return !isFuture && !isOption && !isIndex && !isVolatility;
+    });
+    
+    // Find exact match within filtered stocks
+    const stockExactMatch = stockItems.find(
+      item => item.internalSymbolFull?.toUpperCase() === symbol.toUpperCase()
+    );
+    
+    if (stockExactMatch) {
+      console.log('[eToro] Found exact stock match for:', symbol, '- instrumentId:', stockExactMatch.instrumentId);
+      return stockExactMatch;
+    }
+    
+    // Fallback to first stock item, or first item overall
+    const result = stockItems[0] || items[0] || null;
+    if (result) {
+      console.log('[eToro] Using fallback match for:', symbol, '- found:', result.internalSymbolFull, '- instrumentId:', result.instrumentId);
+    } else {
+      console.warn('[eToro] No instruments found for symbol:', symbol);
+    }
+    
+    return result;
   } catch (error) {
     console.error('[eToro] Error searching by symbol:', error);
     return null;

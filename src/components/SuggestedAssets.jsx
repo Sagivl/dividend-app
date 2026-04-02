@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,23 @@ import {
   Filter,
   Info as InfoIcon,
   MoreVertical,
-  AlertTriangle
+  AlertTriangle,
+  DollarSign,
+  TrendingUp,
+  Shield,
+  List,
+  ChevronDown,
+  Clock
 } from "lucide-react";
+import { fetchHybridStockData } from "@/functions/hybridDataFetcher";
+import { Stock } from "@/entities/Stock";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
 import ConfigurationDialog, { defaultConfig } from "./configure/ConfigurationDialog";
 import EmptyState from "./EmptyState";
+import { User } from "@/entities/User";
+import { getPersonalizedTickers, filterStocks, isPersonalizedStock } from "@/config/personalizedStocks";
 import {
   Popover,
   PopoverContent,
@@ -33,6 +43,45 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
+import WatchlistButton from "./WatchlistButton";
+
+// Data freshness helper - returns { label, color, isStale }
+const getDataFreshness = (lastUpdated) => {
+  if (!lastUpdated) {
+    return { label: 'No data', color: 'text-red-400', bgColor: 'bg-red-900/30', isStale: true };
+  }
+  
+  const now = Date.now();
+  const updated = new Date(lastUpdated).getTime();
+  const diffMs = now - updated;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  let label;
+  if (diffMins < 1) {
+    label = 'Just now';
+  } else if (diffMins < 60) {
+    label = `${diffMins}m ago`;
+  } else if (diffHours < 24) {
+    label = `${diffHours}h ago`;
+  } else if (diffDays === 1) {
+    label = 'Yesterday';
+  } else if (diffDays < 7) {
+    label = `${diffDays}d ago`;
+  } else {
+    label = `${Math.floor(diffDays / 7)}w ago`;
+  }
+  
+  // Color coding: green < 1 hour, yellow 1-24 hours, red > 24 hours
+  if (diffHours < 1) {
+    return { label, color: 'text-green-400', bgColor: 'bg-green-900/30', isStale: false };
+  } else if (diffHours < 24) {
+    return { label, color: 'text-yellow-400', bgColor: 'bg-yellow-900/30', isStale: false };
+  } else {
+    return { label, color: 'text-red-400', bgColor: 'bg-red-900/30', isStale: true };
+  }
+};
 
 // Data validation and cleaning helper
 const cleanDividendGrowthData = (rawGrowth) => {
@@ -164,6 +213,15 @@ const MarketCapDisplay = ({ value, showTooltip = true, className = "" }) => {
   return <span className={className}>{formattedValue}</span>;
 };
 
+// Filter options for the suggestion tabs
+const FILTER_OPTIONS = [
+  { value: 'forYou', label: 'For You', icon: Sparkles, description: 'Based on your investment goals' },
+  { value: 'highYield', label: 'High Yield', icon: DollarSign, description: 'Dividend yield ≥ 4%' },
+  { value: 'growth', label: 'Growth', icon: TrendingUp, description: 'Strong dividend growth (5Y avg ≥ 5%)' },
+  { value: 'lowRisk', label: 'Low Risk', icon: Shield, description: 'Low volatility (Beta ≤ 0.8)' },
+  { value: 'all', label: 'All Matches', icon: List, description: 'All dividend stocks' },
+];
+
 export default function SuggestedAssets({ stocks = [], onRefresh }) {
   const [suggestedStocks, setSuggestedStocks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -171,6 +229,29 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
   const [error, setError] = useState(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [isUpdatingConfig, setIsUpdatingConfig] = useState(false);
+  const [isRefreshingLive, setIsRefreshingLive] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState({ current: 0, total: 0 });
+  const [lastLiveRefresh, setLastLiveRefresh] = useState(null);
+  const hasAutoRefreshed = useRef(false);
+  
+  // Keep a ref to the latest stocks to avoid stale closure issues
+  const stocksRef = useRef(stocks);
+  stocksRef.current = stocks;
+  const [activeFilter, setActiveFilter] = useState(() => {
+    if (typeof window === 'undefined') return 'forYou';
+    try {
+      const saved = localStorage.getItem("suggestedAssetsFilter");
+      return saved || 'forYou';
+    } catch {
+      return 'forYou';
+    }
+  });
+  const [userPreferences, setUserPreferences] = useState({
+    investment_goal: null,
+    risk_tolerance: null
+  });
+  const [personalizedTickers, setPersonalizedTickers] = useState([]);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const router = useRouter();
   
@@ -188,6 +269,31 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
     }
   });
 
+  // Load user preferences on mount
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      try {
+        const user = await User.me();
+        setUserPreferences({
+          investment_goal: user.investment_goal,
+          risk_tolerance: user.risk_tolerance
+        });
+        const tickers = getPersonalizedTickers(user.investment_goal, user.risk_tolerance);
+        setPersonalizedTickers(tickers);
+      } catch (error) {
+        console.error("Error loading user preferences:", error);
+      }
+    };
+    loadUserPreferences();
+  }, []);
+
+  // Save filter preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("suggestedAssetsFilter", activeFilter);
+    }
+  }, [activeFilter]);
+
   const stocksDataKey = useMemo(() => {
     return stocks
       .map(s => `${s.ticker}-${s.last_updated || s.updated_date || ''}-${s.price || ''}`)
@@ -195,8 +301,9 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
       .join('|');
   }, [stocks]);
 
-  const fetchSuggestedAssets = async (configOverride = null, shouldRefreshData = false) => {
+  const fetchSuggestedAssets = async (configOverride = null, shouldRefreshData = false, filterOverride = null) => {
     const currentConfig = configOverride || assetConfig;
+    const currentFilter = filterOverride || activeFilter;
     setIsLoading(true);
     setError(null);
     
@@ -208,44 +315,81 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
         return; // The useEffect will re-run fetchSuggestedAssets when stocks prop updates
       }
       
-      // Use the stocks prop instead of making a new API call
-      console.log("Using provided stocks data for suggestions instead of making new API call");
-      const allStocks = stocks || [];
+      // Always use stocksRef.current to get the latest stocks (avoids stale closure)
+      const allStocks = stocksRef.current || [];
 
       // Filter and evaluate stocks based on configuration
-      const evaluatedStocks = allStocks
+      let evaluatedStocks = allStocks
         .filter(stock => {
           // Basic validation - must have dividend data
           return stock.ticker && 
                  stock.price && parseFloat(stock.price) > 0 && 
                  stock.dividend_yield && parseFloat(stock.dividend_yield) > 0;
         })
-        .map(stock => evaluateStock(stock, currentConfig))
-        .filter(stock => stock.metCriteriaCount > 0) // Only show stocks that meet at least 1 criterion
-        .sort((a, b) => {
-          // Sort by exact matches first, then by score
-          if (a.isExactMatch && !b.isExactMatch) return -1;
-          if (!a.isExactMatch && b.isExactMatch) return 1;
-          
-          // If both are exact matches or both are partial, sort by score
-          if (a.score !== b.score) return b.score - a.score;
-          
-          // If same score, sort by dividend yield
-          return (b.dividend_yield || 0) - (a.dividend_yield || 0);
+        .map(stock => {
+          const evaluated = evaluateStock(stock, currentConfig);
+          evaluated.isPersonalized = isPersonalizedStock(stock.ticker, personalizedTickers);
+          return evaluated;
         });
-
-      // Remove duplicates by ticker
-      const uniqueStocks = [];
-      const seenTickers = new Set();
       
+      // Note: We show ALL dividend-paying stocks, not just those meeting criteria
+      // The scoring system ranks them, with higher scores for stocks meeting more criteria
+
+      // Apply filter-specific criteria
+      if (currentFilter === 'forYou') {
+        // Only show personalized stocks for "For You" tab
+        evaluatedStocks = evaluatedStocks.filter(stock => stock.isPersonalized);
+      } else if (currentFilter === 'highYield') {
+        evaluatedStocks = evaluatedStocks.filter(stock => 
+          stock.dividend_yield !== null && stock.dividend_yield >= 4
+        );
+      } else if (currentFilter === 'growth') {
+        evaluatedStocks = evaluatedStocks.filter(stock => 
+          stock.avg_div_growth_5y !== null && stock.avg_div_growth_5y >= 5
+        );
+      } else if (currentFilter === 'lowRisk') {
+        evaluatedStocks = evaluatedStocks.filter(stock => 
+          stock.beta !== null && stock.beta <= 0.8
+        );
+      }
+
+      // Sorting helper function
+      const sortByScoreAndYield = (a, b) => {
+        // Exact matches first
+        if (a.isExactMatch && !b.isExactMatch) return -1;
+        if (!a.isExactMatch && b.isExactMatch) return 1;
+        // Then by score (criteria met)
+        if (a.score !== b.score) return b.score - a.score;
+        // Then by dividend yield
+        return (b.dividend_yield || 0) - (a.dividend_yield || 0);
+      };
+
+      // Sort all stocks by score and yield
+      evaluatedStocks.sort(sortByScoreAndYield);
+
+      // Remove duplicates by ticker - keep the most recently updated version
+      const stocksByTicker = new Map();
       evaluatedStocks.forEach(stock => {
-        if (!seenTickers.has(stock.ticker.toUpperCase())) {
-          seenTickers.add(stock.ticker.toUpperCase());
-          uniqueStocks.push(stock);
+        const ticker = stock.ticker.toUpperCase();
+        const existing = stocksByTicker.get(ticker);
+        if (!existing) {
+          stocksByTicker.set(ticker, stock);
+        } else {
+          // Keep the one with the most recent last_updated timestamp
+          const existingDate = new Date(existing.last_updated || 0);
+          const newDate = new Date(stock.last_updated || 0);
+          if (newDate > existingDate) {
+            stocksByTicker.set(ticker, stock);
+          }
         }
       });
+      
+      // Convert back to array and re-sort (since we want to maintain score order)
+      const uniqueStocks = Array.from(stocksByTicker.values());
+      uniqueStocks.sort(sortByScoreAndYield);
 
-      setSuggestedStocks(uniqueStocks.slice(0, 20));
+      // Store all matching stocks (display is limited based on isExpanded state)
+      setSuggestedStocks(uniqueStocks);
 
     } catch (error) {
       console.error("Error in fetchSuggestedAssets:", error);
@@ -260,10 +404,132 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
   useEffect(() => {
     // Only run fetchSuggestedAssets if there are stocks provided
     // This handles the initial load and updates when 'stocks' prop changes
+    // Uses stocksRef.current internally to always get latest stocks
     if (stocks.length > 0) {
       fetchSuggestedAssets();
     }
-  }, [stocksDataKey, stocks.length]); // Added stocks.length for clarity, though stocksDataKey should cover it
+  }, [stocksDataKey, stocks.length, activeFilter, personalizedTickers]); // Re-run when filter or personalization changes
+
+  // Refresh stocks with live data from eToro API
+  const refreshLiveData = async (stocksToRefresh = null) => {
+    // Rate limit: max 1 bulk refresh per 5 minutes
+    const REFRESH_COOLDOWN = 5 * 60 * 1000; // 5 minutes
+    if (lastLiveRefresh && Date.now() - lastLiveRefresh < REFRESH_COOLDOWN) {
+      const remainingTime = Math.ceil((REFRESH_COOLDOWN - (Date.now() - lastLiveRefresh)) / 1000 / 60);
+      toast({
+        title: "Please wait",
+        description: `You can refresh again in ${remainingTime} minute${remainingTime > 1 ? 's' : ''}.`,
+        variant: "default",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setIsRefreshingLive(true);
+    setError(null);
+    
+    try {
+      // Get the stocks to refresh (either passed in or the currently displayed ones)
+      const targetStocks = stocksToRefresh || suggestedStocks.slice(0, 12); // Limit to 12 stocks
+      setRefreshProgress({ current: 0, total: targetStocks.length });
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      // Fetch data for each stock sequentially to avoid rate limits
+      for (let i = 0; i < targetStocks.length; i++) {
+        const stock = targetStocks[i];
+        setRefreshProgress({ current: i + 1, total: targetStocks.length });
+        
+        try {
+          const result = await fetchHybridStockData(stock.ticker, stock);
+          
+          if (result.success && result.data) {
+            // Update the stock in the database
+            if (stock.id) {
+              await Stock.update(stock.id, result.data);
+            }
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`Failed to refresh ${stock.ticker}:`, err);
+          failCount++;
+        }
+        
+        // Small delay between requests to avoid rate limiting
+        if (i < targetStocks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+      
+      setLastLiveRefresh(Date.now());
+      
+      // Reload stocks from database to get updated data
+      if (onRefresh) {
+        await onRefresh();
+      }
+      
+      toast({
+        title: "Refresh complete",
+        description: `Updated ${successCount} of ${targetStocks.length} stocks with live data.`,
+        variant: successCount > 0 ? "success" : "default",
+        duration: 3000,
+      });
+      
+    } catch (err) {
+      console.error("Error refreshing live data:", err);
+      setError("Failed to refresh live data. Please try again.");
+      toast({
+        title: "Refresh failed",
+        description: "Could not fetch live data. Please try again later.",
+        variant: "destructive",
+        duration: 4000,
+      });
+    } finally {
+      setIsRefreshingLive(false);
+      setRefreshProgress({ current: 0, total: 0 });
+    }
+  };
+
+  // Auto-refresh stale stocks on initial load (only once)
+  useEffect(() => {
+    if (hasLoaded && suggestedStocks.length > 0 && !hasAutoRefreshed.current) {
+      // Check if most displayed stocks are stale (> 24 hours old)
+      const staleStocks = suggestedStocks.slice(0, 12).filter(stock => {
+        const freshness = getDataFreshness(stock.last_updated || stock.updated_at);
+        return freshness.isStale;
+      });
+      
+      // If more than 50% of displayed stocks are stale, auto-refresh
+      if (staleStocks.length > 6) {
+        hasAutoRefreshed.current = true;
+        console.log(`Auto-refreshing ${staleStocks.length} stale stocks...`);
+        refreshLiveData(staleStocks);
+      }
+    }
+  }, [hasLoaded, suggestedStocks]);
+
+  // Handle filter change
+  const handleFilterChange = (newFilter) => {
+    setActiveFilter(newFilter);
+    setIsExpanded(false); // Reset expansion when filter changes
+    // fetchSuggestedAssets will be triggered by the useEffect above
+  };
+
+  // Get label for expand/collapse CTA
+  const getExpandLabel = () => {
+    const filterOption = FILTER_OPTIONS.find(f => f.value === activeFilter);
+    if (isExpanded) return 'Show Less';
+    if (!filterOption || activeFilter === 'forYou') return 'See All Stocks';
+    return `See All ${filterOption.label} Stocks`;
+  };
+
+  // Toggle expanded view
+  const handleToggleExpand = () => {
+    setIsExpanded(!isExpanded);
+  };
 
   const handleConfigSave = async (newConfig) => {
     setIsUpdatingConfig(true);
@@ -297,7 +563,7 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
 
   // Generate dynamic tooltip text based on current configuration
   const getConfigurationTooltipText = () => {
-    return `Filtering stocks based on your criteria:
+    return `Stocks are filtered and scored based on your criteria:
 • Min. Market Cap: $${assetConfig.marketCapMin / 1000}B
 • Min. Chowder Number: ${assetConfig.chowderMin}
 • Max. Payout Ratio: ${assetConfig.payoutRatioMax}%
@@ -305,22 +571,28 @@ export default function SuggestedAssets({ stocks = [], onRefresh }) {
 • Max. Beta: ${assetConfig.betaMax}
 • Min. Dividend Yield: ${assetConfig.dividendYieldMin}%
 
-Exact matches (meeting all criteria) are shown first, followed by partial matches sorted by relevance.`;
+Exact matches (meeting all criteria) are shown first, followed by partial matches sorted by relevance.
+
+Click "Refresh" to fetch live market data from eToro.`;
   };
 
   const SuggestedStockCard = ({ stock }) => {
     const chowderNumber = stock.calculatedChowder;
 
     return (
-      <Card className={`bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-200 hover:shadow-lg transition-all duration-300 flex flex-col ${stock.isExactMatch ? "ring-1 ring-green-500" : ""}`}>
+      <Card className={`bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-200 hover:shadow-lg transition-all duration-300 flex flex-col ${stock.isExactMatch ? "ring-1 ring-green-500" : ""} ${stock.isPersonalized ? "ring-1 ring-yellow-500/50" : ""}`}>
         <CardContent className="p-3 md:p-4 flex flex-col flex-grow">
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="flex flex-col flex-grow min-w-0 mr-2">
-              <div className="flex items-center">
+              <div className="flex items-center gap-1">
                 <h3 className="text-base md:text-lg font-semibold text-slate-100 leading-tight truncate">
                   {stock.ticker}
-                  {stock.isExactMatch && <Crown className="h-4 md:h-5 w-4 md:w-5 text-yellow-500 inline ml-1" />}
                 </h3>
+                <WatchlistButton ticker={stock.ticker} size="sm" />
+                {stock.isExactMatch && <Crown className="h-4 md:h-5 w-4 md:w-5 text-yellow-500 flex-shrink-0" />}
+                {stock.isPersonalized && activeFilter === 'forYou' && (
+                  <Sparkles className="h-3.5 md:h-4 w-3.5 md:w-4 text-yellow-400 flex-shrink-0" />
+                )}
               </div>
               <p className="text-xs sm:text-sm text-slate-400 truncate mt-1">
                 {stock.name}
@@ -333,6 +605,16 @@ Exact matches (meeting all criteria) are shown first, followed by partial matche
               <div className="text-[10px] text-slate-500 mt-1 hidden sm:block">
                 {stock.isExactMatch ? "Perfect Match" : `${stock.metCriteriaCount}/6 criteria met`}
               </div>
+              {/* Data freshness indicator */}
+              {(() => {
+                const freshness = getDataFreshness(stock.last_updated || stock.updated_at);
+                return (
+                  <div className={`flex items-center gap-1 mt-1 text-[10px] ${freshness.color}`}>
+                    <Clock className="h-2.5 w-2.5" />
+                    <span>{freshness.label}</span>
+                  </div>
+                );
+              })()}
             </div>
             {stock.price && (
               <div className="text-sm md:text-base lg:text-lg font-semibold text-green-400 whitespace-nowrap flex-shrink-0">
@@ -465,16 +747,24 @@ Exact matches (meeting all criteria) are shown first, followed by partial matche
     // The conditional rendering below will show "No stocks found" if `suggestedStocks` is empty.
   }
 
-  const exactMatches = suggestedStocks.filter(stock => stock.isExactMatch);
-  const partialMatches = suggestedStocks.filter(stock => !stock.isExactMatch);
+  // Limit displayed stocks based on expansion state
+  const displayLimit = 20;
+  const displayedStocks = isExpanded ? suggestedStocks : suggestedStocks.slice(0, displayLimit);
+  const hasMoreStocks = suggestedStocks.length > displayLimit;
+  const hiddenCount = suggestedStocks.length - displayLimit;
+
+  // Categorize stocks for display
+  const exactMatches = displayedStocks.filter(stock => stock.isExactMatch);
+  const partialMatches = displayedStocks.filter(stock => !stock.isExactMatch && stock.metCriteriaCount > 0);
+  const otherStocks = displayedStocks.filter(stock => stock.metCriteriaCount === 0);
 
   return (
     <div className="mb-6 sm:mb-8 px-2 sm:px-0">
       <div className="flex items-center justify-between mb-3 sm:mb-4">
         <div className="flex items-center">
-          <Sparkles className="h-5 w-5 text-yellow-500 mr-2" />
+          <TrendingUp className="h-5 w-5 text-green-500 mr-2" />
           <h2 className="text-lg sm:text-xl font-semibold text-slate-100">
-            AI Suggested Assets
+            Suggested Assets
           </h2>
           {isUpdatingConfig && (
             <div className="flex items-center ml-3">
@@ -515,21 +805,28 @@ Exact matches (meeting all criteria) are shown first, followed by partial matche
             className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
           >
             <Filter className="h-4 w-4 mr-1.5" />
-            Filters
+            Criteria
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => fetchSuggestedAssets(null, true)}
-            disabled={isLoading || isUpdatingConfig}
+            onClick={() => refreshLiveData()}
+            disabled={isLoading || isUpdatingConfig || isRefreshingLive}
             className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
           >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+            {isRefreshingLive ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                {refreshProgress.total > 0 && (
+                  <span className="text-xs">{refreshProgress.current}/{refreshProgress.total}</span>
+                )}
+              </>
             ) : (
-              <RefreshCw className="h-4 w-4 mr-1.5" />
+              <>
+                <RefreshCw className="h-4 w-4 mr-1.5" />
+                Refresh
+              </>
             )}
-            Refresh
           </Button>
         </div>
 
@@ -547,23 +844,119 @@ Exact matches (meeting all criteria) are shown first, followed by partial matche
               className="text-sm cursor-pointer focus:bg-slate-700 focus:text-green-300 hover:bg-slate-700"
             >
               <Filter className="h-4 w-4 mr-2" />
-              Filters
+              Criteria
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => fetchSuggestedAssets(null, true)}
-              disabled={isLoading || isUpdatingConfig}
+              onClick={() => refreshLiveData()}
+              disabled={isLoading || isUpdatingConfig || isRefreshingLive}
               className="text-sm cursor-pointer focus:bg-slate-700 focus:text-green-300 hover:bg-slate-700"
             >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              {isRefreshingLive ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  {refreshProgress.total > 0 && `${refreshProgress.current}/${refreshProgress.total}`}
+                </>
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Live Data
+                </>
               )}
-              Refresh
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Filter Tabs */}
+      <div className="mb-4">
+        <div className="overflow-x-auto">
+          <div className="flex gap-2 min-w-max pb-1">
+            {FILTER_OPTIONS.map((filter) => {
+              const FilterIcon = filter.icon;
+              const isActive = activeFilter === filter.value;
+              return (
+                <Button
+                  key={filter.value}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleFilterChange(filter.value)}
+                  disabled={isLoading || isUpdatingConfig}
+                  className={`
+                    flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap
+                    ${isActive 
+                      ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600 hover:border-slate-500'
+                    }
+                  `}
+                >
+                  <FilterIcon className="h-3.5 w-3.5" />
+                  {filter.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+        {/* Active filter description - outside scrollable area */}
+        <p className="text-xs text-slate-400 mt-2">
+          {FILTER_OPTIONS.find(f => f.value === activeFilter)?.description}
+          {activeFilter === 'forYou' && userPreferences.investment_goal && (
+            <span className="ml-1 text-green-400">
+              ({userPreferences.investment_goal}, {userPreferences.risk_tolerance || 'moderate'})
+            </span>
+          )}
+        </p>
+      </div>
+
+      {/* Stale data warning */}
+      {hasLoaded && !isRefreshingLive && suggestedStocks.length > 0 && (() => {
+        const staleCount = suggestedStocks.slice(0, 12).filter(s => 
+          getDataFreshness(s.last_updated || s.updated_at).isStale
+        ).length;
+        const displayedCount = Math.min(suggestedStocks.length, 12);
+        if (staleCount > displayedCount / 2) {
+          return (
+            <div className="mb-4 p-3 rounded-lg bg-yellow-900/20 border border-yellow-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                <span className="text-xs sm:text-sm text-yellow-300">
+                  {staleCount} of {displayedCount} stocks have outdated data (24h+)
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => refreshLiveData()}
+                disabled={isRefreshingLive}
+                className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/30 text-xs"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Update Now
+              </Button>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Live refresh progress indicator */}
+      {isRefreshingLive && (
+        <div className="mb-4 p-3 rounded-lg bg-green-900/20 border border-green-700/50">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 text-green-400 animate-spin" />
+            <div className="flex-1">
+              <p className="text-sm text-green-300">
+                Fetching live data... {refreshProgress.current}/{refreshProgress.total}
+              </p>
+              <div className="mt-1.5 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-green-500 transition-all duration-300"
+                  style={{ width: refreshProgress.total > 0 ? `${(refreshProgress.current / refreshProgress.total) * 100}%` : '0%' }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && (!hasLoaded || stocks.length === 0) ? ( // Check if still loading or waiting for initial stocks data
         <div className="text-center py-8">
@@ -601,7 +994,7 @@ Exact matches (meeting all criteria) are shown first, followed by partial matche
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3 mb-6">
                 {exactMatches.map((stock, index) => (
-                  <SuggestedStockCard key={`exact-${stock.ticker}-${index}`} stock={stock} />
+                  <SuggestedStockCard key={`exact-${stock.ticker}-${stock.last_updated || index}`} stock={stock} />
                 ))}
               </div>
             </div>
@@ -614,18 +1007,50 @@ Exact matches (meeting all criteria) are shown first, followed by partial matche
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
                 {partialMatches.map((stock, index) => (
-                  <SuggestedStockCard key={`partial-${stock.ticker}-${index}`} stock={stock} />
+                  <SuggestedStockCard key={`partial-${stock.ticker}-${stock.last_updated || index}`} stock={stock} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {otherStocks.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-slate-500 mb-3">
+                Other Dividend Stocks ({otherStocks.length})
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                {otherStocks.map((stock, index) => (
+                  <SuggestedStockCard key={`other-${stock.ticker}-${stock.last_updated || index}`} stock={stock} />
                 ))}
               </div>
             </div>
           )}
           
           <div className="text-center text-xs text-slate-500 mt-4">
-            {exactMatches.length > 0 && partialMatches.length > 0
-              ? `${exactMatches.length} perfect matches, ${partialMatches.length} partial matches`
-              : `Showing ${suggestedStocks.length} dividend stocks matching your criteria`
-            }
+            {`Showing ${displayedStocks.length}${!isExpanded && hasMoreStocks ? ` of ${suggestedStocks.length}` : ''} dividend stocks`}
+            {exactMatches.length > 0 && ` • ${exactMatches.length} perfect`}
+            {partialMatches.length > 0 && ` • ${partialMatches.length} partial`}
           </div>
+          
+          {/* Expand/Collapse CTA */}
+          {hasMoreStocks && (
+            <div className="text-center mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleExpand}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600 hover:border-green-500"
+              >
+                {getExpandLabel()}
+                <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              </Button>
+              {!isExpanded && (
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {hiddenCount} more stocks available
+                </p>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <EmptyState

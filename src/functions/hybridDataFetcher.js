@@ -11,8 +11,46 @@ import { fetchEtoroData, isEtoroAvailable } from './etoroApi';
 function processData(etoroData, existingData = {}) {
   const result = { ...existingData };
   
-  // Fields that should ALWAYS be updated from fresh API data
-  const alwaysUpdateFields = ['market_cap', 'price', 'dividend_yield', 'pe_ratio', 'beta', 'roe'];
+  // Validate that the new data is consistent (price should be within reasonable range of 52-week values)
+  // This helps prevent data from wrong instruments (e.g., VIX instead of V/Visa)
+  const validatePriceConsistency = () => {
+    if (!etoroData?.hasData) return true;
+    
+    const newPrice = etoroData.price;
+    const newMin52w = etoroData.min_52w;
+    const newMax52w = etoroData.max_52w;
+    const existingMin52w = existingData.min_52w;
+    const existingMax52w = existingData.max_52w;
+    
+    // If we have both existing 52-week range and new price, validate consistency
+    if (existingMin52w && existingMax52w && newPrice) {
+      const existingMidpoint = (existingMin52w + existingMax52w) / 2;
+      const priceDiffRatio = Math.abs(newPrice - existingMidpoint) / existingMidpoint;
+      
+      // If new price is more than 80% away from existing midpoint, it's likely wrong data
+      if (priceDiffRatio > 0.8) {
+        // But only reject if new 52-week range is also very different (confirming wrong instrument)
+        if (newMin52w && newMax52w) {
+          const rangeOverlap = Math.min(existingMax52w, newMax52w) - Math.max(existingMin52w, newMin52w);
+          if (rangeOverlap < 0) {
+            console.warn(`[Data] Price validation failed: new price $${newPrice} with range [$${newMin52w}-$${newMax52w}] doesn't match existing range [$${existingMin52w}-$${existingMax52w}]. Likely wrong instrument.`);
+            return false;
+          }
+        }
+      }
+    }
+    
+    return true;
+  };
+  
+  // Skip update if data appears to be from wrong instrument
+  if (!validatePriceConsistency()) {
+    console.warn('[Data] Skipping update due to price inconsistency - data may be from wrong instrument');
+    return result;
+  }
+  
+  // Fields that should ALWAYS be updated from fresh API data (keep price data in sync)
+  const alwaysUpdateFields = ['market_cap', 'price', 'min_52w', 'max_52w', 'dividend_yield', 'pe_ratio', 'beta', 'roe'];
   
   const setIfBetter = (key, value, source) => {
     if (value !== null && value !== undefined && value !== '') {

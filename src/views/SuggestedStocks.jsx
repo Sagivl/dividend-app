@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { Stock } from "@/entities/Stock";
-import { User } from "@/entities/User"; 
+import { User } from "@/entities/User";
+import { Watchlist } from "@/entities/Watchlist";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-// Select components are now in FilterSelectComponent
+import WatchlistButton from "@/components/WatchlistButton";
 import { 
   DollarSign, 
   Award, 
@@ -21,7 +22,46 @@ import {
   PieChart,
   Star,
   ChevronRight,
+  Clock,
+  StarOff,
 } from "lucide-react";
+
+// Data freshness helper
+const getDataFreshness = (lastUpdated) => {
+  if (!lastUpdated) {
+    return { label: 'No data', color: 'text-red-400', isStale: true };
+  }
+  
+  const now = Date.now();
+  const updated = new Date(lastUpdated).getTime();
+  const diffMs = now - updated;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  let label;
+  if (diffMins < 1) {
+    label = 'Just now';
+  } else if (diffMins < 60) {
+    label = `${diffMins}m ago`;
+  } else if (diffHours < 24) {
+    label = `${diffHours}h ago`;
+  } else if (diffDays === 1) {
+    label = 'Yesterday';
+  } else if (diffDays < 7) {
+    label = `${diffDays}d ago`;
+  } else {
+    label = `${Math.floor(diffDays / 7)}w ago`;
+  }
+  
+  if (diffHours < 1) {
+    return { label, color: 'text-green-400', isStale: false };
+  } else if (diffHours < 24) {
+    return { label, color: 'text-yellow-400', isStale: false };
+  } else {
+    return { label, color: 'text-red-400', isStale: true };
+  }
+};
 import Link from "next/link";
 import { createPageUrl } from "@/utils";
 import FilterSelectComponent from "../components/FilterSelectComponent"; // Import the new component
@@ -66,13 +106,24 @@ export default function SuggestedStocks() {
     }
     setIsLoading(true);
     try {
-      const fetchedStocks = await Stock.list(); 
-      const userSpecificStocksRaw = fetchedStocks.filter(stock => stock.created_by === currentUserEmail);
+      const watchlistItems = await Watchlist.list();
+      const watchlistTickers = watchlistItems.map(item => item.ticker.toUpperCase());
+      
+      if (watchlistTickers.length === 0) {
+        setAllStocks([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      const fetchedStocks = await Stock.list();
+      const watchlistedStocks = fetchedStocks.filter(stock => 
+        stock.ticker && watchlistTickers.includes(stock.ticker.toUpperCase())
+      );
 
       const uniqueStocksByTicker = [];
       const seenTickers = new Set();
 
-      userSpecificStocksRaw.sort((a, b) => {
+      watchlistedStocks.sort((a, b) => {
         if (a.ticker < b.ticker) return -1;
         if (a.ticker > b.ticker) return 1;
         const dateA = a.updated_date ? new Date(a.updated_date) : new Date(0);
@@ -80,7 +131,7 @@ export default function SuggestedStocks() {
         return dateB - dateA; 
       });
 
-      for (const stock of userSpecificStocksRaw) {
+      for (const stock of watchlistedStocks) {
         if (stock.ticker && !seenTickers.has(stock.ticker.toUpperCase())) { 
           uniqueStocksByTicker.push(stock);
           seenTickers.add(stock.ticker.toUpperCase()); 
@@ -129,7 +180,10 @@ export default function SuggestedStocks() {
     { value: "premium", label: "Premium", count: premiumStocks.length, icon: Crown, description: "ROE ≥ 15% AND Chowder > 10.5", data: premiumStocks, emptyMessage: "No stocks meeting premium criteria found in your watchlist." },
   ];
 
-  // StockCard remains the same
+  const handleRemoveFromWatchlist = () => {
+    loadStocks();
+  };
+
   const StockCard = ({ stock, isPremium = false }) => {
     const dividendYield = stock.dividend_yield ? parseFloat(stock.dividend_yield) : null;
     const roe = stock.roe ? parseFloat(stock.roe) : null;
@@ -145,13 +199,30 @@ export default function SuggestedStocks() {
         <CardContent className="p-3 md:p-4 flex flex-col flex-grow">
           <div className="flex justify-between items-start mb-2 md:mb-3">
             <div className="flex-grow min-w-0 mr-2">
-              <h3 className="text-base md:text-lg font-semibold text-slate-100 leading-tight truncate">
-                {stock.ticker?.toUpperCase()}
-                {isPremium && <Crown className="h-4 md:h-5 w-4 md:w-5 text-yellow-500 inline ml-1" />}
-              </h3>
+              <div className="flex items-center gap-1">
+                <h3 className="text-base md:text-lg font-semibold text-slate-100 leading-tight truncate">
+                  {stock.ticker?.toUpperCase()}
+                </h3>
+                <WatchlistButton 
+                  ticker={stock.ticker} 
+                  size="sm" 
+                  onToggle={(result) => !result.added && handleRemoveFromWatchlist()}
+                />
+                {isPremium && <Crown className="h-4 md:h-5 w-4 md:w-5 text-yellow-500 flex-shrink-0" />}
+              </div>
               <p className="text-xs sm:text-sm text-slate-400 truncate">
                 {stock.name || "No name available"}
               </p>
+              {/* Data freshness indicator */}
+              {(() => {
+                const freshness = getDataFreshness(stock.last_updated || stock.updated_at);
+                return (
+                  <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${freshness.color}`}>
+                    <Clock className="h-2.5 w-2.5" />
+                    <span>{freshness.label}</span>
+                  </div>
+                );
+              })()}
             </div>
             {stock.price && (
               <div className="text-sm md:text-base lg:text-lg font-semibold text-green-400 whitespace-nowrap flex-shrink-0"> {/* Price text color */}
@@ -231,7 +302,7 @@ export default function SuggestedStocks() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3">
           {stocks.map((stockItem) => (
             <StockCard 
-              key={stockItem.id} 
+              key={`${stockItem.id}-${stockItem.last_updated || ''}`} 
               stock={stockItem} 
               isPremium={passedPremiumStocks.some(ps => ps.id === stockItem.id)}
             />
@@ -276,49 +347,25 @@ export default function SuggestedStocks() {
           <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] p-4">
             <Card className="max-w-lg mx-auto shadow-lg bg-slate-800 border-slate-700">
               <CardContent className="p-6 sm:p-8">
-                <h3 className="text-lg sm:text-xl font-semibold mb-6 text-slate-100 text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-700 flex items-center justify-center">
+                    <StarOff className="h-8 w-8 sm:h-10 sm:w-10 text-slate-400" />
+                  </div>
+                </div>
+                
+                <h3 className="text-lg sm:text-xl font-semibold mb-3 text-slate-100 text-center">
                   Your Watchlist is Empty
                 </h3>
                 
-                <div className="flex items-center justify-center gap-2 sm:gap-4 mb-6">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-700 flex items-center justify-center mb-2">
-                      <Search className="h-6 w-6 sm:h-7 sm:w-7 text-green-400" />
-                    </div>
-                    <span className="text-xs sm:text-sm text-slate-300 font-medium">Search</span>
-                    <span className="text-[10px] sm:text-xs text-slate-500">a stock</span>
-                  </div>
-                  
-                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 text-slate-500 flex-shrink-0" />
-                  
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-700 flex items-center justify-center mb-2">
-                      <PieChart className="h-6 w-6 sm:h-7 sm:w-7 text-green-400" />
-                    </div>
-                    <span className="text-xs sm:text-sm text-slate-300 font-medium">Analyze</span>
-                    <span className="text-[10px] sm:text-xs text-slate-500">results</span>
-                  </div>
-                  
-                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 text-slate-500 flex-shrink-0" />
-                  
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-500/20 border-2 border-green-500/50 flex items-center justify-center mb-2">
-                      <Star className="h-6 w-6 sm:h-7 sm:w-7 text-green-400" />
-                    </div>
-                    <span className="text-xs sm:text-sm text-slate-300 font-medium">Appears</span>
-                    <span className="text-[10px] sm:text-xs text-slate-500">in Watchlist</span>
-                  </div>
-                </div>
-
                 <p className="text-xs sm:text-sm text-slate-400 text-center mb-6 px-2">
-                  Every stock you search is automatically saved to your Watchlist for easy access.
+                  Add stocks to your watchlist by clicking the <Star className="h-4 w-4 inline text-yellow-400" /> star icon when viewing any stock.
                 </p>
                 
                 <div className="flex justify-center">
                   <Link href={createPageUrl("Dashboard")}>
                     <Button className="bg-[#3FB923] hover:bg-green-600 text-white px-5 py-2.5 text-sm sm:text-base">
                       <Search className="mr-2 h-4 w-4" />
-                      Search Your First Stock
+                      Search for Stocks
                     </Button>
                   </Link>
                 </div>
