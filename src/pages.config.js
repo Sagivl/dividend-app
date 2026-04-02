@@ -54,6 +54,7 @@ import HomePage from './views/HomePage';
 import EtoroLabs from './views/EtoroLabs';
 import Instrument from './views/Instrument';
 import CompareStocks from './views/CompareStocks';
+import Portfolio from './views/Portfolio';
 import __Layout from './Layout.jsx';
 
 
@@ -65,6 +66,7 @@ export const PAGES = {
     "EtoroLabs": EtoroLabs,
     "Instrument": Instrument,
     "CompareStocks": CompareStocks,
+    "Portfolio": Portfolio,
 }
 
 export const pagesConfig = {

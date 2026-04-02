@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
-import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2 } from "lucide-react";
+import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +29,13 @@ export default function Layout({ children, currentPageName }) {
           path: createPageUrl("Dashboard"),
           icon: Search,
           description: "Analyze stocks"
+        },
+        {
+          name: "Portfolio",
+          displayName: "Portfolio",
+          path: createPageUrl("Portfolio"),
+          icon: Wallet,
+          description: "Track your holdings"
         },
         {
           name: "SuggestedStocks",
@@ -77,16 +84,16 @@ export default function Layout({ children, currentPageName }) {
           <div className="flex justify-between items-center h-16">
             <div 
               onClick={() => router.push("/")} 
-              className="flex items-center group cursor-pointer"
+              className="flex items-center group cursor-pointer shrink-0"
             >
-              <TrendingUp className="h-8 w-8 text-primary mr-3 group-hover:text-primary/80 transition-colors" />
-              <h1 className="text-xl font-bold text-foreground group-hover:text-foreground/80 transition-colors">
+              <TrendingUp className="h-8 w-8 text-primary mr-2 lg:mr-3 group-hover:text-primary/80 transition-colors" />
+              <h1 className="text-xl font-bold text-foreground group-hover:text-foreground/80 transition-colors hidden lg:block">
                 Dividend Analyzer
               </h1>
             </div>
             
-            <div className="flex items-center space-x-1 md:space-x-3">
-              <nav className="hidden sm:flex space-x-1 md:space-x-3">
+            <div className="flex items-center space-x-1 lg:space-x-2">
+              <nav className="hidden sm:flex space-x-1 lg:space-x-2">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentPageName === item.name;
@@ -96,14 +103,14 @@ export default function Layout({ children, currentPageName }) {
                       key={item.name}
                       href={item.path}
                       title={item.displayName || item.name}
-                      className={`flex items-center px-2 py-2 md:px-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                      className={`flex items-center px-2 py-2 lg:px-3 rounded-lg text-sm font-medium transition-all duration-200 relative ${
                         isActive
                           ? "bg-primary/15 text-primary"
                           : "text-muted-foreground hover:text-foreground hover:bg-accent"
                       }`}
                     >
-                      <Icon className={`h-4 w-4 md:mr-2 ${isActive ? "text-primary" : ""}`} />
-                      <span className="hidden md:inline">{item.displayName || item.name}</span>
+                      <Icon className={`h-4 w-4 lg:mr-2 ${isActive ? "text-primary" : ""}`} />
+                      <span className="hidden lg:inline">{item.displayName || item.name}</span>
                     </Link>
                   );
                 })}
@@ -114,10 +121,10 @@ export default function Layout({ children, currentPageName }) {
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      className="text-muted-foreground hover:text-foreground hover:bg-accent text-sm ml-1 sm:ml-2 focus-visible:ring-primary"
+                      className="text-muted-foreground hover:text-foreground hover:bg-accent text-sm ml-1 focus-visible:ring-primary"
                     >
-                      <HelpCircle className="h-4 w-4 md:mr-2" />
-                      <span className="hidden md:inline">How it Works</span>
+                      <HelpCircle className="h-4 w-4 lg:mr-2" />
+                      <span className="hidden lg:inline">How it Works</span>
                     </Button>
                   </span>
                 </DialogTrigger>

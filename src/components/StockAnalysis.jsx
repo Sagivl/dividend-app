@@ -237,6 +237,20 @@ const StockAnalysis = ({ stock }) => {
   const isGoodChowder = useMemo(() => chowderNumber !== null ? chowderNumber > 10.5 : null, [chowderNumber]);
   const getChowderColorClass = useMemo(() => isGoodChowder === null ? "text-amber-400" : (isGoodChowder ? "text-green-400" : "text-red-400"), [isGoodChowder]);
 
+  const payoutRatioValue = useMemo(() => stock?.payout_ratio ? parseFloat(stock.payout_ratio) : null, [stock?.payout_ratio]);
+  const payoutRatioStatus = useMemo(() => {
+    if (payoutRatioValue === null) return null;
+    if (payoutRatioValue < 60) return "good";
+    if (payoutRatioValue <= 80) return "moderate";
+    return "high";
+  }, [payoutRatioValue]);
+  const getPayoutRatioColorClass = useMemo(() => {
+    if (payoutRatioStatus === null) return "text-slate-400";
+    if (payoutRatioStatus === "good") return "text-green-400";
+    if (payoutRatioStatus === "moderate") return "text-amber-400";
+    return "text-red-400";
+  }, [payoutRatioStatus]);
+
   const isGoodROE = useMemo(() => {
     if (!stock) return null;
     return hasValue('roe') ? parseFloat(stock.roe) >= 15 : null;
@@ -472,8 +486,26 @@ const StockAnalysis = ({ stock }) => {
                     <div className="text-sm font-medium text-slate-300 flex items-center">
                       Payout Ratio <InfoTooltip explanation="The percentage of a company's earnings paid out as dividends. A lower ratio (e.g., below 60-70%) may indicate more sustainable dividends and room for growth." />
                     </div>
-                    <div className="text-xl font-bold text-purple-400 mt-1">
-                      {stock.payout_ratio ? `${parseFloat(stock.payout_ratio).toFixed(1)}%` : "N/A"}
+                    <div className="flex flex-col">
+                      <div className={`text-xl font-bold ${getPayoutRatioColorClass} flex items-center mt-1`}>
+                        {payoutRatioValue !== null ? `${payoutRatioValue.toFixed(1)}%` : "N/A"}
+                        {payoutRatioStatus !== null && (
+                          <span className="ml-2">
+                            {payoutRatioStatus === "good" ? <CheckCircle className="h-5 w-5 text-green-400" /> : 
+                             payoutRatioStatus === "high" ? <AlertTriangle className="h-5 w-5 text-red-400" /> : null}
+                          </span>
+                        )}
+                      </div>
+                      {payoutRatioStatus !== null && (
+                        <Badge variant="outline" className={`mt-1 text-xs ${
+                          payoutRatioStatus === "good" ? "bg-green-900/50 text-green-300 border-green-700" : 
+                          payoutRatioStatus === "moderate" ? "bg-amber-900/50 text-amber-300 border-amber-700" :
+                          "bg-red-900/50 text-red-300 border-red-700"
+                        } inline-flex w-fit`}>
+                          {payoutRatioStatus === "good" ? "Safe" : 
+                           payoutRatioStatus === "moderate" ? "Moderate" : "High"}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
