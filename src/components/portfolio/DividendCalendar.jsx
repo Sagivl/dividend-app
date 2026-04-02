@@ -64,46 +64,67 @@ function getPaymentFrequency(distributionSequence) {
   return 4;
 }
 
-function estimatePaymentDates(stock, year) {
-  const dates = [];
+function getDividendEvent(stock, year) {
+  // Priority: Use pay_date if available, otherwise fall back to ex_date
+  // These represent the SAME dividend - don't show both
   
+  // Try pay date first (when you actually receive money)
   if (stock.dividend_pay_date) {
     try {
       const payDate = parseISO(stock.dividend_pay_date);
       if (isValid(payDate)) {
-        dates.push({ date: payDate, type: 'payment' });
+        // Also include ex_date info if available
+        let exDate = null;
+        if (stock.ex_date) {
+          try {
+            const parsed = parseISO(stock.ex_date);
+            if (isValid(parsed)) exDate = parsed;
+          } catch (e) {}
+        }
+        return { 
+          date: payDate, 
+          type: 'payment',
+          exDate: exDate
+        };
       }
     } catch (e) {}
   }
   
+  // Fall back to ex-date if no pay date
   if (stock.ex_date) {
     try {
       const exDate = parseISO(stock.ex_date);
       if (isValid(exDate)) {
-        dates.push({ date: exDate, type: 'ex-dividend' });
+        return { 
+          date: exDate, 
+          type: 'ex-dividend',
+          exDate: exDate
+        };
       }
     } catch (e) {}
   }
 
-  if (dates.length === 0) {
-    const frequency = getPaymentFrequency(stock.div_distribution_sequence);
-    const startMonths = frequency === 12 
-      ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-      : frequency === 4 
-        ? [2, 5, 8, 11]
-        : frequency === 2
-          ? [5, 11]
-          : [11];
+  // No dates available - estimate based on frequency
+  const frequency = getPaymentFrequency(stock.div_distribution_sequence);
+  const currentMonth = new Date().getMonth();
+  
+  // Find the next estimated payment month
+  const paymentMonths = frequency === 12 
+    ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    : frequency === 4 
+      ? [2, 5, 8, 11] // Mar, Jun, Sep, Dec
+      : frequency === 2
+        ? [5, 11] // Jun, Dec
+        : [11]; // Dec only
 
-    startMonths.forEach(month => {
-      dates.push({
-        date: new Date(year, month, 15),
-        type: 'estimated'
-      });
-    });
-  }
-
-  return dates;
+  // Return the next upcoming estimated payment
+  const nextMonth = paymentMonths.find(m => m >= currentMonth) ?? paymentMonths[0];
+  
+  return {
+    date: new Date(year, nextMonth, 15),
+    type: 'estimated',
+    exDate: null
+  };
 }
 
 export default function DividendCalendar({ positions, stocksMap }) {
@@ -125,19 +146,18 @@ export default function DividendCalendar({ positions, stocksMap }) {
       const stock = position.stock || stocksMap?.[position.ticker];
       if (!stock) return;
 
-      const paymentDates = estimatePaymentDates(stock, year);
+      const event = getDividendEvent(stock, year);
       const frequency = getPaymentFrequency(stock.div_distribution_sequence);
       const paymentAmount = (position.annualIncome || 0) / frequency;
 
-      paymentDates.forEach(({ date, type }) => {
-        events.push({
-          date,
-          ticker: position.ticker,
-          type,
-          amount: paymentAmount,
-          color: tickerColorMap[position.ticker],
-          stock
-        });
+      events.push({
+        date: event.date,
+        ticker: position.ticker,
+        type: event.type,
+        exDate: event.exDate,
+        amount: paymentAmount,
+        color: tickerColorMap[position.ticker],
+        stock
       });
     });
 
@@ -272,42 +292,60 @@ export default function DividendCalendar({ positions, stocksMap }) {
                               </div>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-64" align="start">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
+                          <PopoverContent className="w-72" align="start">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
                                 {event.stock?.logo50x50 && (
                                   <img 
                                     src={event.stock.logo50x50}
                                     alt={event.ticker}
-                                    className="w-8 h-8 rounded"
+                                    className="w-10 h-10 rounded"
                                   />
                                 )}
                                 <div>
                                   <div className="font-semibold">{event.ticker}</div>
-                                  <div className="text-xs text-muted-foreground">
+                                  <div className="text-sm text-muted-foreground">
                                     {event.stock?.name}
                                   </div>
                                 </div>
                               </div>
-                              <div className="border-t pt-2 space-y-1">
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">Date:</span>
-                                  <span>{format(event.date, "MMM d, yyyy")}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">Type:</span>
-                                  <Badge variant={event.type === 'ex-dividend' ? 'secondary' : 'default'}>
-                                    {event.type === 'ex-dividend' ? 'Ex-Dividend' : 
-                                     event.type === 'estimated' ? 'Estimated' : 'Payment'}
-                                  </Badge>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">Amount:</span>
-                                  <span className="font-semibold text-green-500">
+                              <div className="border-t pt-3 space-y-2">
+                                {event.type === 'payment' && (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Pay Date:</span>
+                                    <span className="font-medium">{format(event.date, "MMM d, yyyy")}</span>
+                                  </div>
+                                )}
+                                {event.exDate && event.type === 'payment' && (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Ex-Div Date:</span>
+                                    <span>{format(event.exDate, "MMM d, yyyy")}</span>
+                                  </div>
+                                )}
+                                {event.type === 'ex-dividend' && (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Ex-Div Date:</span>
+                                    <span className="font-medium">{format(event.date, "MMM d, yyyy")}</span>
+                                  </div>
+                                )}
+                                {event.type === 'estimated' && (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Est. Date:</span>
+                                    <span className="font-medium">{format(event.date, "MMM d, yyyy")}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between text-sm pt-1 border-t">
+                                  <span className="text-muted-foreground">Expected:</span>
+                                  <span className="font-bold text-green-500 text-base">
                                     {formatCurrency(event.amount)}
                                   </span>
                                 </div>
                               </div>
+                              {event.type === 'estimated' && (
+                                <p className="text-xs text-muted-foreground">
+                                  * Date estimated based on typical quarterly schedule
+                                </p>
+                              )}
                             </div>
                           </PopoverContent>
                         </Popover>
@@ -351,15 +389,26 @@ export default function DividendCalendar({ positions, stocksMap }) {
                         </span>
                       </div>
                       <div className="flex items-center justify-between mt-1">
-                        <span className="text-sm text-muted-foreground">
-                          {format(event.date, "EEEE, MMM d")}
-                        </span>
+                        <div className="text-sm text-muted-foreground">
+                          {event.type === 'payment' ? (
+                            <span>Pay: {format(event.date, "MMM d")}</span>
+                          ) : event.type === 'ex-dividend' ? (
+                            <span>Ex-Div: {format(event.date, "MMM d")}</span>
+                          ) : (
+                            <span>Est: {format(event.date, "MMM d")}</span>
+                          )}
+                          {event.exDate && event.type === 'payment' && (
+                            <span className="ml-2 text-xs">
+                              (Ex: {format(event.exDate, "MMM d")})
+                            </span>
+                          )}
+                        </div>
                         <Badge 
-                          variant={event.type === 'ex-dividend' ? 'secondary' : 'outline'} 
-                          className="text-xs"
+                          variant={event.type === 'payment' ? 'default' : event.type === 'ex-dividend' ? 'secondary' : 'outline'} 
+                          className="text-xs shrink-0"
                         >
                           {event.type === 'ex-dividend' ? 'Ex-Div' : 
-                           event.type === 'estimated' ? 'Est.' : 'Pay'}
+                           event.type === 'estimated' ? 'Est.' : 'Pay Day'}
                         </Badge>
                       </div>
                     </div>
