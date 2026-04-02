@@ -159,12 +159,12 @@ export default function PortfolioView() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4 sm:mb-6 w-full sm:w-auto grid grid-cols-2 sm:flex">
-          <TabsTrigger value="holdings" className="gap-2">
+        <TabsList className="mb-4 sm:mb-6">
+          <TabsTrigger value="holdings" className="gap-2 px-4">
             <Wallet className="h-4 w-4" />
             Holdings
           </TabsTrigger>
-          <TabsTrigger value="calendar" className="gap-2">
+          <TabsTrigger value="calendar" className="gap-2 px-4">
             <Calendar className="h-4 w-4" />
             Calendar
           </TabsTrigger>
