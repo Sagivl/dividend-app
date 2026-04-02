@@ -145,20 +145,21 @@ export default function PortfolioView() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Wallet className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">My Portfolio</h1>
+    <div className="container mx-auto px-4 py-4 sm:py-6 max-w-6xl pb-20 sm:pb-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Wallet className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold">My Portfolio</h1>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
+        <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="gap-1.5 sm:gap-2">
           <Plus className="h-4 w-4" />
-          Add Stock
+          <span className="hidden sm:inline">Add Stock</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
+        <TabsList className="mb-4 sm:mb-6 w-full sm:w-auto grid grid-cols-2 sm:flex">
           <TabsTrigger value="holdings" className="gap-2">
             <Wallet className="h-4 w-4" />
             Holdings

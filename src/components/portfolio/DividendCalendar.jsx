@@ -185,9 +185,136 @@ export default function DividendCalendar({ positions, stocksMap }) {
     );
   }
 
+  const sortedMonthEvents = [...monthEvents].sort((a, b) => a.date - b.date);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <Card className="lg:col-span-3">
+    <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-4 lg:gap-6">
+      {/* Month Summary - Shows first on mobile */}
+      <div className="lg:order-2 space-y-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                {format(currentMonth, "MMMM")} Summary
+              </CardTitle>
+              {/* Mobile month navigation */}
+              <div className="flex items-center gap-1 lg:hidden">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPreviousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-500 mb-2">
+              {formatCurrency(monthTotal)}
+            </div>
+            <div className="text-sm text-muted-foreground mb-4">
+              Expected dividend income
+            </div>
+            
+            {monthEvents.length > 0 ? (
+              <div className="space-y-2">
+                {Object.entries(
+                  monthEvents.reduce((acc, event) => {
+                    if (!acc[event.ticker]) {
+                      acc[event.ticker] = { 
+                        amount: 0, 
+                        color: event.color,
+                        events: []
+                      };
+                    }
+                    acc[event.ticker].amount += event.amount;
+                    acc[event.ticker].events.push(event);
+                    return acc;
+                  }, {})
+                ).map(([ticker, data]) => (
+                  <div key={ticker} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", data.color)} />
+                      <span className="text-sm font-medium">{ticker}</span>
+                    </div>
+                    <span className="text-sm text-green-500">
+                      {formatCurrency(data.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No dividend payments expected this month.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Legend - hidden on mobile */}
+        <Card className="hidden lg:block">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Legend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {positions.map(pos => (
+                <div key={pos.ticker} className="flex items-center gap-2">
+                  <div className={cn("w-3 h-3 rounded", tickerColorMap[pos.ticker])} />
+                  <span className="text-sm">{pos.ticker}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Mobile List View */}
+      <div className="lg:hidden space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground px-1">
+          Upcoming Dividends
+        </h3>
+        {sortedMonthEvents.length > 0 ? (
+          sortedMonthEvents.map((event, idx) => (
+            <Card key={`${event.ticker}-${idx}`} className="bg-card/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm", event.color)}>
+                      {event.ticker.slice(0, 2)}
+                    </div>
+                    <div>
+                      <div className="font-medium">{event.ticker}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(event.date, "MMM d, yyyy")}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-green-500">
+                      {formatCurrency(event.amount)}
+                    </div>
+                    <Badge variant={event.type === 'ex-dividend' ? 'secondary' : 'outline'} className="text-xs">
+                      {event.type === 'ex-dividend' ? 'Ex-Div' : 
+                       event.type === 'estimated' ? 'Est.' : 'Payment'}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card className="bg-card/50">
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No dividend payments expected this month.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Desktop Calendar View */}
+      <Card className="hidden lg:block lg:col-span-3 lg:order-1">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">
@@ -303,74 +430,6 @@ export default function DividendCalendar({ positions, stocksMap }) {
           </div>
         </CardContent>
       </Card>
-
-      <div className="space-y-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              {format(currentMonth, "MMMM")} Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-500 mb-4">
-              {formatCurrency(monthTotal)}
-            </div>
-            <div className="text-sm text-muted-foreground mb-4">
-              Expected dividend income
-            </div>
-            
-            {monthEvents.length > 0 ? (
-              <div className="space-y-2">
-                {Object.entries(
-                  monthEvents.reduce((acc, event) => {
-                    if (!acc[event.ticker]) {
-                      acc[event.ticker] = { 
-                        amount: 0, 
-                        color: event.color,
-                        events: []
-                      };
-                    }
-                    acc[event.ticker].amount += event.amount;
-                    acc[event.ticker].events.push(event);
-                    return acc;
-                  }, {})
-                ).map(([ticker, data]) => (
-                  <div key={ticker} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", data.color)} />
-                      <span className="text-sm font-medium">{ticker}</span>
-                    </div>
-                    <span className="text-sm text-green-500">
-                      {formatCurrency(data.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No dividend payments expected this month.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Legend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {positions.map(pos => (
-                <div key={pos.ticker} className="flex items-center gap-2">
-                  <div className={cn("w-3 h-3 rounded", tickerColorMap[pos.ticker])} />
-                  <span className="text-sm">{pos.ticker}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

@@ -120,7 +120,79 @@ export default function HoldingsTab({
         positionCount={positions.length}
       />
 
-      <Card>
+      {/* Mobile Card View */}
+      <div className="space-y-3 md:hidden">
+        {positions.map((position) => (
+          <Card key={position.id} className="bg-card/50">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <button
+                  onClick={() => handleViewStock(position.ticker)}
+                  className="flex items-center gap-2 hover:text-primary transition-colors text-left"
+                >
+                  {position.stock?.logo50x50 && (
+                    <img 
+                      src={position.stock.logo50x50} 
+                      alt={position.ticker}
+                      className="w-10 h-10 rounded"
+                    />
+                  )}
+                  <div>
+                    <div className="font-semibold text-base">{position.ticker}</div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[180px]">
+                      {position.stock?.name || "—"}
+                    </div>
+                  </div>
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-1">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleEdit(position)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleDelete(position)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">Shares</div>
+                  <div className="font-medium">{formatNumber(position.shares, position.shares % 1 === 0 ? 0 : 4)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Value</div>
+                  <div className="font-medium">{formatCurrency(position.marketValue)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Yield</div>
+                  <div className={position.dividendYield > 0 ? "text-green-500 font-medium" : "font-medium"}>
+                    {formatPercent(position.dividendYield)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Annual Income</div>
+                  <div className="font-medium text-green-500">{formatCurrency(position.annualIncome)}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <Card className="hidden md:block">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Holdings</CardTitle>
         </CardHeader>
