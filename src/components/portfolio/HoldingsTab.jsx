@@ -450,70 +450,72 @@ export default function HoldingsTab({
         </div>
       )}
 
-      {/* Filter Tabs - Shows when there are 3+ positions */}
-      {positions.length >= 3 && (
-        <div className="mb-4">
-          <div className="overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0">
-            <div className="flex gap-2 min-w-max">
-              {filterOptions.map((filter) => {
-                const FilterIcon = filter.icon;
-                const isActive = activeFilter === filter.id;
-                return (
-                  <Button
-                    key={filter.id}
-                    variant={isActive ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setActiveFilter(filter.id)}
-                    className={cn(
-                      "flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap transition-colors",
-                      isActive 
-                        ? "bg-[#3FB923] hover:bg-green-600 text-white border-[#3FB923]" 
-                        : "border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-slate-100"
-                    )}
-                  >
-                    <FilterIcon className="h-3.5 w-3.5" />
-                    {filter.label}
-                  </Button>
-                );
-              })}
+      {/* Holdings Card - Unified container for filters and content */}
+      <Card className="bg-card/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg mb-3">Holdings</CardTitle>
+          
+          {/* Filter Tabs - Shows when there are 3+ positions */}
+          {positions.length >= 3 && (
+            <div className="overflow-x-auto pb-1 -mx-2 px-2">
+              <div className="flex gap-2 min-w-max">
+                {filterOptions.map((filter) => {
+                  const FilterIcon = filter.icon;
+                  const isActive = activeFilter === filter.id;
+                  return (
+                    <Button
+                      key={filter.id}
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setActiveFilter(filter.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap transition-colors",
+                        isActive 
+                          ? "bg-[#3FB923] hover:bg-green-600 text-white border-[#3FB923]" 
+                          : "border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-slate-100"
+                      )}
+                    >
+                      <FilterIcon className="h-3.5 w-3.5" />
+                      {filter.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Search Input - Shows when there are 5+ positions */}
-      {positions.length >= 5 && (
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by ticker or name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 bg-card/50 border-slate-700"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          {searchQuery && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Showing {sortedPositions.length} of {positions.length} positions
-            </p>
           )}
-        </div>
-      )}
 
-      {/* Mobile Card View with Swipeable Actions and Expandable Details */}
-      <div className="space-y-3 md:hidden">
-        <p className="text-xs text-muted-foreground mb-2 px-1">
-          Swipe left on a card to reveal actions
-        </p>
+          {/* Search Input - Shows when there are 5+ positions */}
+          {positions.length >= 5 && (
+            <div className="mt-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by ticker or name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9 bg-slate-800/50 border-slate-700"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {searchQuery && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Showing {sortedPositions.length} of {positions.length} positions
+                </p>
+              )}
+            </div>
+          )}
+        </CardHeader>
+
+        <CardContent>
+          {/* Mobile Card View */}
+          <div className="space-y-3 md:hidden">
         {sortedPositions.map((position) => {
           const isExpanded = expandedCards[position.id];
           const totalCostBasis = position.totalCostBasis || (position.cost_basis ? position.cost_basis * position.shares : null);
@@ -673,15 +675,10 @@ export default function HoldingsTab({
             </CardContent>
           </Card>
         )}
-      </div>
+          </div>
 
-      {/* Desktop Table View */}
-      <Card className="hidden md:block">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Holdings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -815,6 +812,7 @@ export default function HoldingsTab({
               </Button>
             </div>
           )}
+          </div>
         </CardContent>
       </Card>
 
