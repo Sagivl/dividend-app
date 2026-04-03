@@ -179,13 +179,6 @@ export default function DividendTimeline({ positions, className }) {
             ))}
           </div>
         </div>
-
-        {/* View all link */}
-        <div className="mt-3 pt-3 border-t border-slate-700/50 text-center">
-          <span className="text-xs text-muted-foreground">
-            View the Calendar tab for all dividend dates
-          </span>
-        </div>
       </CardContent>
     </Card>
   );
