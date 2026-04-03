@@ -812,7 +812,6 @@ export default function HoldingsTab({
               </Button>
             </div>
           )}
-          </div>
         </CardContent>
       </Card>
 
