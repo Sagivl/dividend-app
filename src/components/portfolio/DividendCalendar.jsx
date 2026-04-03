@@ -64,64 +64,113 @@ function getPaymentFrequency(distributionSequence) {
   return 4;
 }
 
-function getDividendEvent(stock, year) {
-  // Priority: Use pay_date if available, otherwise fall back to ex_date
-  // These represent the SAME dividend - don't show both
+function projectDateToYear(originalDate, targetYear, frequency) {
+  const originalMonth = originalDate.getMonth();
+  const originalDay = originalDate.getDate();
   
-  // Try pay date first (when you actually receive money)
+  // For quarterly/semi-annual/annual, project to same month in target year
+  // For monthly, use the same day each month
+  return new Date(targetYear, originalMonth, originalDay);
+}
+
+function getAllDividendEventsForYear(stock, year) {
+  const frequency = getPaymentFrequency(stock.div_distribution_sequence);
+  const events = [];
+  
+  // Parse the stored dates to get the typical payment day of month
+  let basePayDate = null;
+  let baseExDate = null;
+  let typicalPayDay = 15; // Default to 15th if no date available
+  let typicalExDay = 1;
+  
   if (stock.dividend_pay_date) {
     try {
-      const payDate = parseISO(stock.dividend_pay_date);
-      if (isValid(payDate)) {
-        // Also include ex_date info if available
-        let exDate = null;
-        if (stock.ex_date) {
-          try {
-            const parsed = parseISO(stock.ex_date);
-            if (isValid(parsed)) exDate = parsed;
-          } catch (e) {}
-        }
-        return { 
-          date: payDate, 
-          type: 'payment',
-          exDate: exDate
-        };
+      const parsed = parseISO(stock.dividend_pay_date);
+      if (isValid(parsed)) {
+        basePayDate = parsed;
+        typicalPayDay = parsed.getDate();
       }
     } catch (e) {}
   }
   
-  // Fall back to ex-date if no pay date
   if (stock.ex_date) {
     try {
-      const exDate = parseISO(stock.ex_date);
-      if (isValid(exDate)) {
-        return { 
-          date: exDate, 
-          type: 'ex-dividend',
-          exDate: exDate
-        };
+      const parsed = parseISO(stock.ex_date);
+      if (isValid(parsed)) {
+        baseExDate = parsed;
+        typicalExDay = parsed.getDate();
       }
     } catch (e) {}
   }
-
-  // No dates available - estimate based on frequency
-  const frequency = getPaymentFrequency(stock.div_distribution_sequence);
-  const currentMonth = new Date().getMonth();
   
-  // Find the next estimated payment month
-  const paymentMonths = frequency === 12 
-    ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    : frequency === 4 
-      ? [2, 5, 8, 11] // Mar, Jun, Sep, Dec
-      : frequency === 2
-        ? [5, 11] // Jun, Dec
-        : [11]; // Dec only
-
-  // Return the next upcoming estimated payment
-  const nextMonth = paymentMonths.find(m => m >= currentMonth) ?? paymentMonths[0];
+  // Determine which months dividends are paid based on frequency and distribution sequence
+  let paymentMonths = [];
+  const distSeq = (stock.div_distribution_sequence || '').toLowerCase();
   
+  if (frequency === 12) {
+    // Monthly - all months
+    paymentMonths = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  } else if (frequency === 4) {
+    // Quarterly - try to parse from distribution sequence
+    if (distSeq.includes('jan') || distSeq.includes('apr') || distSeq.includes('jul') || distSeq.includes('oct')) {
+      paymentMonths = [0, 3, 6, 9]; // Jan, Apr, Jul, Oct
+    } else if (distSeq.includes('feb') || distSeq.includes('may') || distSeq.includes('aug') || distSeq.includes('nov')) {
+      paymentMonths = [1, 4, 7, 10]; // Feb, May, Aug, Nov
+    } else if (distSeq.includes('mar') || distSeq.includes('jun') || distSeq.includes('sep') || distSeq.includes('dec')) {
+      paymentMonths = [2, 5, 8, 11]; // Mar, Jun, Sep, Dec
+    } else if (basePayDate) {
+      // Use the base date month as reference
+      const baseMonth = basePayDate.getMonth();
+      paymentMonths = [baseMonth, (baseMonth + 3) % 12, (baseMonth + 6) % 12, (baseMonth + 9) % 12].sort((a, b) => a - b);
+    } else {
+      paymentMonths = [2, 5, 8, 11]; // Default to Mar, Jun, Sep, Dec
+    }
+  } else if (frequency === 2) {
+    // Semi-annual
+    if (basePayDate) {
+      const baseMonth = basePayDate.getMonth();
+      paymentMonths = [baseMonth, (baseMonth + 6) % 12].sort((a, b) => a - b);
+    } else {
+      paymentMonths = [5, 11]; // Jun, Dec
+    }
+  } else {
+    // Annual
+    if (basePayDate) {
+      paymentMonths = [basePayDate.getMonth()];
+    } else {
+      paymentMonths = [11]; // December
+    }
+  }
+  
+  // Generate events for each payment month in the year
+  for (const month of paymentMonths) {
+    const payDate = new Date(year, month, typicalPayDay);
+    // Ex-date is typically 2-3 weeks before pay date
+    const exDate = new Date(year, month, Math.max(1, typicalExDay));
+    
+    events.push({
+      date: payDate,
+      type: basePayDate ? 'payment' : 'estimated',
+      exDate: exDate
+    });
+  }
+  
+  return events;
+}
+
+function getDividendEvent(stock, year) {
+  // Get all dividend events for this stock in the given year
+  const allEvents = getAllDividendEventsForYear(stock, year);
+  
+  // Return just the first event (for backwards compatibility)
+  // The calendar will call getAllDividendEventsForYear directly for the full year view
+  if (allEvents.length > 0) {
+    return allEvents[0];
+  }
+  
+  // Fallback if no events could be generated
   return {
-    date: new Date(year, nextMonth, 15),
+    date: new Date(year, 11, 15),
     type: 'estimated',
     exDate: null
   };
@@ -146,18 +195,21 @@ export default function DividendCalendar({ positions, stocksMap }) {
       const stock = position.stock || stocksMap?.[position.ticker];
       if (!stock) return;
 
-      const event = getDividendEvent(stock, year);
+      // Get all dividend events for this stock in the year
+      const stockEvents = getAllDividendEventsForYear(stock, year);
       const frequency = getPaymentFrequency(stock.div_distribution_sequence);
       const paymentAmount = (position.annualIncome || 0) / frequency;
 
-      events.push({
-        date: event.date,
-        ticker: position.ticker,
-        type: event.type,
-        exDate: event.exDate,
-        amount: paymentAmount,
-        color: tickerColorMap[position.ticker],
-        stock
+      stockEvents.forEach(event => {
+        events.push({
+          date: event.date,
+          ticker: position.ticker,
+          type: event.type,
+          exDate: event.exDate,
+          amount: paymentAmount,
+          color: tickerColorMap[position.ticker],
+          stock
+        });
       });
     });
 
