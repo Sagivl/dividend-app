@@ -678,8 +678,9 @@ export default function HoldingsTab({
           </div>
 
           {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto">
-            <Table>
+          <div className="hidden md:block">
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <SortableHeader column="ticker" label="Stock" />
@@ -795,23 +796,24 @@ export default function HoldingsTab({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
-
-          {/* No results message for desktop */}
-          {sortedPositions.length === 0 && searchQuery && (
-            <div className="py-8 text-center">
-              <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-muted-foreground">No positions match "{searchQuery}"</p>
-              <Button 
-                variant="link" 
-                onClick={() => setSearchQuery('')}
-                className="mt-2"
-              >
-                Clear search
-              </Button>
+              </Table>
             </div>
-          )}
+
+            {/* No results message for desktop */}
+            {sortedPositions.length === 0 && searchQuery && (
+              <div className="py-8 text-center">
+                <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-muted-foreground">No positions match "{searchQuery}"</p>
+                <Button 
+                  variant="link" 
+                  onClick={() => setSearchQuery('')}
+                  className="mt-2"
+                >
+                  Clear search
+                </Button>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
