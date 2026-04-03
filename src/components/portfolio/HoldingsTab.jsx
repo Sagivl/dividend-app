@@ -478,14 +478,6 @@ export default function HoldingsTab({
               })}
             </div>
           </div>
-          <p className="text-xs text-slate-400 mt-2">
-            {filterOptions.find(f => f.id === activeFilter)?.description}
-            {activeFilter !== 'all' && (
-              <span className="ml-1">
-                ({filteredByChip.length} of {positions.length})
-              </span>
-            )}
-          </p>
         </div>
       )}
 
@@ -686,12 +678,7 @@ export default function HoldingsTab({
       {/* Desktop Table View */}
       <Card className="hidden md:block">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Holdings</CardTitle>
-            <span className="text-sm text-muted-foreground">
-              Double-click shares to edit inline
-            </span>
-          </div>
+          <CardTitle className="text-lg">Holdings</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
