@@ -5,12 +5,13 @@ import { Portfolio } from "@/entities/Portfolio";
 import { Stock } from "@/entities/Stock";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Wallet, Calendar, Plus, Loader2 } from "lucide-react";
+import { Wallet, Calendar, Plus } from "lucide-react";
 import HoldingsTab from "../components/portfolio/HoldingsTab";
 import DividendCalendar from "../components/portfolio/DividendCalendar";
 import AddPositionDialog from "../components/portfolio/AddPositionDialog";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
 import { toast } from "react-hot-toast";
+import { PageContainer, PageHeader, LoadingState } from "@/components/layout";
 
 export default function PortfolioView() {
   const [positions, setPositions] = useState([]);
@@ -57,8 +58,11 @@ export default function PortfolioView() {
     const annualDividendPerShare = currentPrice * (dividendYield / 100);
     const annualIncome = position.shares * annualDividendPerShare;
     const marketValue = position.shares * currentPrice;
-    const yieldOnCost = position.cost_basis 
-      ? (annualIncome / position.cost_basis) * 100 
+    const totalCostBasis = position.cost_basis 
+      ? position.cost_basis * position.shares 
+      : null;
+    const yieldOnCost = totalCostBasis 
+      ? (annualIncome / totalCostBasis) * 100 
       : null;
 
     return {
@@ -69,6 +73,7 @@ export default function PortfolioView() {
       annualDividendPerShare,
       annualIncome,
       marketValue,
+      totalCostBasis,
       yieldOnCost
     };
   });
@@ -76,7 +81,7 @@ export default function PortfolioView() {
   const totals = enrichedPositions.reduce((acc, pos) => ({
     totalValue: acc.totalValue + pos.marketValue,
     totalIncome: acc.totalIncome + pos.annualIncome,
-    totalCost: acc.totalCost + (pos.cost_basis || 0)
+    totalCost: acc.totalCost + (pos.totalCostBasis || 0)
   }), { totalValue: 0, totalIncome: 0, totalCost: 0 });
 
   const portfolioYield = totals.totalValue > 0 
@@ -137,34 +142,36 @@ export default function PortfolioView() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState message="Loading portfolio..." />;
   }
 
   return (
-    <div className="container mx-auto px-4 py-4 sm:py-6 max-w-6xl pb-20 sm:pb-6">
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Wallet className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold">My Portfolio</h1>
-        </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="gap-1.5 sm:gap-2">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Add Stock</span>
-          <span className="sm:hidden">Add</span>
-        </Button>
-      </div>
+    <PageContainer maxWidth="6xl" bottomPadding>
+      <PageHeader
+        title="My Portfolio"
+        icon={Wallet}
+        action={
+          <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="gap-1.5 sm:gap-2 bg-[#3FB923] hover:bg-green-600 text-white">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Stock</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4 sm:mb-6">
-          <TabsTrigger value="holdings" className="gap-2 px-4">
+        <TabsList className="mb-4 sm:mb-6 bg-slate-800 border border-slate-700 rounded-lg">
+          <TabsTrigger 
+            value="holdings" 
+            className="gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+          >
             <Wallet className="h-4 w-4" />
             Holdings
           </TabsTrigger>
-          <TabsTrigger value="calendar" className="gap-2 px-4">
+          <TabsTrigger 
+            value="calendar" 
+            className="gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+          >
             <Calendar className="h-4 w-4" />
             Calendar
           </TabsTrigger>
@@ -196,6 +203,6 @@ export default function PortfolioView() {
         existingStocks={stocks}
         existingPositions={positions}
       />
-    </div>
+    </PageContainer>
   );
 }

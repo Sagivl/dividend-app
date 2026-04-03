@@ -11,6 +11,7 @@ import StockSearch from "../components/StockSearch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import MarketCapDisplay from "../components/MarketCapDisplay";
 import StockLogo from "../components/StockLogo";
+import { PageContainer, PageHeader } from "@/components/layout";
 
 // MetricTooltip component definition - supports both hover (desktop) and click (mobile)
 const MetricTooltip = ({ explanation }) => {
@@ -448,19 +449,18 @@ Focus on dividend sustainability, growth potential, financial strength, and over
   // If showing comparison, render the comparison page
   if (showComparison) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-200 p-3 sm:p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Back Button */}
-          <div className="mb-6">
-            <Button
-              onClick={goBackToSelection}
-              variant="outline"
-              className="w-auto bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Back to Selection</span>
-            </Button>
-          </div>
+      <PageContainer>
+        {/* Back Button */}
+        <div className="mb-6">
+          <Button
+            onClick={goBackToSelection}
+            variant="outline"
+            className="w-auto bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Back to Selection</span>
+          </Button>
+        </div>
 
           {/* Comparison Table */}
           <Card className="bg-slate-800 border-slate-700 mb-6">
@@ -655,36 +655,18 @@ Focus on dividend sustainability, growth potential, financial strength, and over
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
+      </PageContainer>
     );
   }
 
   // Main selection page
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 p-3 sm:p-6 pb-28 sm:pb-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Desktop Header - Hidden on Mobile */}
-        <div className="hidden sm:flex items-center gap-4 mb-8">
-            <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 flex-shrink-0">
-                <BarChart2 className="h-8 w-8 text-green-400" />
-            </div>
-            <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-100">Compare Dividend Stocks</h1>
-                <p className="text-sm text-slate-400 mt-1">Select 2 to 4 stocks for a side-by-side AI-powered analysis.</p>
-            </div>
-        </div>
-
-        {/* Mobile Header - Only on Mobile */}
-        <div className="flex items-center gap-2.5 mb-6 sm:hidden">
-          <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 flex-shrink-0">
-            <BarChart2 className="h-5 w-5 text-green-400" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-100">Compare Dividend Stocks</h2>
-            <p className="text-xs text-slate-400">Select 2 to 4 stocks for AI analysis.</p>
-          </div>
-        </div>
+    <PageContainer bottomPadding>
+      <PageHeader
+        title="Compare Dividend Stocks"
+        description="Select 2 to 4 stocks for a side-by-side AI-powered analysis"
+        icon={BarChart2}
+      />
 
         {/* Stock Selection */}
         <Card className="bg-slate-800 border-slate-700 mb-6">
@@ -779,7 +761,6 @@ Focus on dividend sustainability, growth potential, financial strength, and over
             )}
           </CardContent>
         </Card>
-      </div>
       
       {/* Sticky Compare Button - Above mobile nav */}
       {selectedStocks.length > 0 && (
@@ -798,6 +779,6 @@ Focus on dividend sustainability, growth potential, financial strength, and over
             </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

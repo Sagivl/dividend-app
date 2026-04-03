@@ -158,17 +158,17 @@ function EditPositionForm({ position, onSubmit, onCancel, isDrawer = false }) {
         <div className="text-xs text-muted-foreground uppercase tracking-wider">Optional</div>
         
         <div className="grid grid-cols-2 gap-3">
-          {/* Cost Basis */}
+          {/* Cost Per Share */}
           <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-1.5">
               <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-              Cost Basis
+              Cost Per Share
             </Label>
             <Input
               type="number"
               step="0.01"
               min="0"
-              placeholder="Total cost"
+              placeholder="Price paid per share"
               value={costBasis}
               onChange={(e) => setCostBasis(e.target.value)}
               className="h-11"

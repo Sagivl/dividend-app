@@ -280,13 +280,13 @@ function AddPositionForm({
           <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-1.5">
               <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-              Cost Basis
+              Cost Per Share
             </Label>
             <Input
               type="number"
               step="0.01"
               min="0"
-              placeholder="Total cost"
+              placeholder="Price paid per share"
               value={costBasis}
               onChange={(e) => setCostBasis(e.target.value)}
               className="h-11"
@@ -335,7 +335,7 @@ function AddPositionForm({
               Yield on Cost
             </span>
             <span className="font-semibold">
-              {(((Number(shares) * (selectedStock.price || 0) * (selectedStock.dividend_yield / 100)) / Number(costBasis)) * 100).toFixed(2)}%
+              {(((selectedStock.price || 0) * (selectedStock.dividend_yield / 100)) / Number(costBasis) * 100).toFixed(2)}%
             </span>
           </div>
         )}

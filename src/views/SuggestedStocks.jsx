@@ -64,8 +64,9 @@ const getDataFreshness = (lastUpdated) => {
 };
 import Link from "next/link";
 import { createPageUrl } from "@/utils";
-import FilterSelectComponent from "../components/FilterSelectComponent"; // Import the new component
-import MarketCapDisplay from "../components/MarketCapDisplay"; // Import the new MarketCapDisplay component
+import FilterSelectComponent from "../components/FilterSelectComponent";
+import MarketCapDisplay from "../components/MarketCapDisplay";
+import { LoadingState } from "@/components/layout";
 
 export default function SuggestedStocks() {
   const [allStocks, setAllStocks] = useState([]);
@@ -318,11 +319,7 @@ export default function SuggestedStocks() {
   );
 
   if (isLoading || currentUserEmail === null) { 
-    return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-slate-900">
-        <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 text-green-400 animate-spin" /> {/* Loader color */}
-      </div>
-    );
+    return <LoadingState message="Loading watchlist..." />;
   }
   
   const selectedFilterOption = filterOptions.find(opt => opt.value === activeTab) || filterOptions[0];

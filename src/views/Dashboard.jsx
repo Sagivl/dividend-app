@@ -12,8 +12,9 @@ import OnboardingModal from "../components/OnboardingModal";
 import WatchlistButton from "../components/WatchlistButton";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, PieChart, Loader2, CheckCircle } from "lucide-react";
+import { FileText, PieChart, Loader2, CheckCircle, Search } from "lucide-react";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
+import { PageContainer, LoadingState } from "@/components/layout";
 
 export default function Dashboard() {
   const searchParams = useSearchParams();
@@ -330,7 +331,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 p-3 sm:p-6">
+    <PageContainer>
       {/* Onboarding Modal */}
       <OnboardingModal
         open={showOnboarding}
@@ -347,7 +348,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Search Bar */}
         <div className="mb-6 sm:mb-8 max-w-3xl mx-auto px-2 sm:px-0">
           <StockSearch 
@@ -371,11 +372,11 @@ export default function Dashboard() {
         
         {/* Loading State */}
         {(isLoading || isInitialStocksLoading) && !selectedStock && (
-          <div className="text-center mt-8 sm:mt-12">
-            <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 text-green-400 animate-spin mx-auto" />
-            <p className="mt-3 text-slate-400">
-              {isInitialStocksLoading ? "Loading your stocks..." : "Searching..."}
-            </p>
+          <div className="mt-8 sm:mt-12">
+            <LoadingState 
+              fullPage={false} 
+              message={isInitialStocksLoading ? "Loading your stocks..." : "Searching..."} 
+            />
           </div>
         )}
 
@@ -411,14 +412,14 @@ export default function Dashboard() {
               <TabsList className="bg-slate-800 rounded-lg flex w-full sm:w-auto border border-slate-700">
                 <TabsTrigger 
                   value="input" 
-                  className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
                 >
                   <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Stats</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="analysis" 
-                  className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
                 >
                   <PieChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Analysis</span>
@@ -440,6 +441,6 @@ export default function Dashboard() {
           </Tabs>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

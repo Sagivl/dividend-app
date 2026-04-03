@@ -590,9 +590,6 @@ Click "Refresh" to fetch live market data from eToro.`;
                 </h3>
                 <WatchlistButton ticker={stock.ticker} size="sm" />
                 {stock.isExactMatch && <Crown className="h-4 md:h-5 w-4 md:w-5 text-yellow-500 flex-shrink-0" />}
-                {stock.isPersonalized && activeFilter === 'forYou' && (
-                  <Sparkles className="h-3.5 md:h-4 w-3.5 md:w-4 text-yellow-400 flex-shrink-0" />
-                )}
               </div>
               <p className="text-xs sm:text-sm text-slate-400 truncate mt-1">
                 {stock.name}
@@ -882,10 +879,10 @@ Click "Refresh" to fetch live market data from eToro.`;
                   onClick={() => handleFilterChange(filter.value)}
                   disabled={isLoading || isUpdatingConfig}
                   className={`
-                    flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap
+                    flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap transition-colors
                     ${isActive 
-                      ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600 hover:border-slate-500'
+                      ? 'bg-[#3FB923] hover:bg-green-600 text-white border-[#3FB923]' 
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-200 border-slate-600 hover:border-slate-500'
                     }
                   `}
                 >

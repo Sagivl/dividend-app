@@ -512,9 +512,29 @@ export async function fetchEtoroData(symbol) {
       price_to_sales: detailedInfo?.['priceToSales-Annual'] || detailedInfo?.['priceToSales-TTM'] || null,
       price_to_cash_flow: detailedInfo?.['priceToCashFlow-Annual'] || detailedInfo?.['priceToCashFlow-TTM'] || null,
       
-      // Profitability
-      roe: detailedInfo?.['returnOnCommonEquity-Annual'] || detailedInfo?.['returnOnAverageTotalEquity-TTM'] || null,
-      roa: detailedInfo?.['returnOnAssets-Annual'] || detailedInfo?.['returnOnAssets-TTM'] || null,
+      // Profitability (API returns values scaled by 100, so divide to get actual percentage)
+      // Values beyond +/- 500% are capped as they typically indicate equity near zero (unreliable)
+      roe: (() => {
+        const rawRoe = detailedInfo?.['returnOnCommonEquity-Annual'] || detailedInfo?.['returnOnAverageTotalEquity-TTM'];
+        if (rawRoe == null) return null;
+        const roe = rawRoe / 100;
+        // Cap extreme values - ROE beyond +/-500% indicates minimal/negative equity
+        if (Math.abs(roe) > 500) {
+          console.log(`[eToro] ROE value ${roe.toFixed(1)}% is extreme, capping at ${roe > 0 ? 500 : -500}%`);
+          return roe > 0 ? 500 : -500;
+        }
+        return roe;
+      })(),
+      roa: (() => {
+        const rawRoa = detailedInfo?.['returnOnAssets-Annual'] || detailedInfo?.['returnOnAssets-TTM'];
+        if (rawRoa == null) return null;
+        const roa = rawRoa / 100;
+        // Cap extreme values
+        if (Math.abs(roa) > 100) {
+          return roa > 0 ? 100 : -100;
+        }
+        return roa;
+      })(),
       
       // Risk
       beta: detailedInfo?.['beta-TTM'] || detailedInfo?.['beta-Annual'] || null,
