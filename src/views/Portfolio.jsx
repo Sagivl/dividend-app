@@ -17,6 +17,7 @@ import { PageContainer, PageHeader, LoadingState } from "@/components/layout";
 
 const INSTRUMENT_CACHE_KEY = 'etoro_instrument_symbols';
 const ASSET_CLASS_CACHE_KEY = 'etoro_instrument_asset_classes';
+const INSTRUMENT_META_CACHE_KEY = 'etoro_instrument_meta';
 
 function getInstrumentCache() {
   try {
@@ -38,6 +39,16 @@ function setAssetClassCache(cache) {
   localStorage.setItem(ASSET_CLASS_CACHE_KEY, JSON.stringify(cache));
 }
 
+function getInstrumentMetaCache() {
+  try {
+    return JSON.parse(localStorage.getItem(INSTRUMENT_META_CACHE_KEY) || '{}');
+  } catch { return {}; }
+}
+
+function setInstrumentMetaCache(cache) {
+  localStorage.setItem(INSTRUMENT_META_CACHE_KEY, JSON.stringify(cache));
+}
+
 export default function PortfolioView() {
   const [positions, setPositions] = useState([]);
   const [stocks, setStocks] = useState([]);
@@ -52,6 +63,7 @@ export default function PortfolioView() {
   const [etoroRefreshing, setEtoroRefreshing] = useState(false);
   const [resolvedSymbols, setResolvedSymbols] = useState(getInstrumentCache);
   const [instrumentAssetClasses, setInstrumentAssetClasses] = useState(getAssetClassCache);
+  const [instrumentMeta, setInstrumentMeta] = useState(getInstrumentMetaCache);
   const [etoroLastSynced, setEtoroLastSynced] = useState(null);
 
   const instrumentMap = useMemo(() => {
@@ -132,6 +144,7 @@ export default function PortfolioView() {
     const resolveSymbols = async () => {
       const cache = { ...resolvedSymbols };
       const assetClasses = { ...instrumentAssetClasses };
+      const meta = { ...instrumentMeta };
       for (const id of uniqueIds) {
         if (cancelled) break;
         try {
@@ -142,6 +155,10 @@ export default function PortfolioView() {
             if (item) {
               cache[id] = item.internalSymbolFull || item.symbolFull || `ID:${id}`;
               assetClasses[id] = item.internalAssetClassName || 'Unknown';
+              meta[id] = {
+                logo50x50: item.logo50x50 || null,
+                name: item.internalInstrumentDisplayName || null,
+              };
             }
           }
         } catch { /* ignore */ }
@@ -151,6 +168,8 @@ export default function PortfolioView() {
         setInstrumentCache(cache);
         setInstrumentAssetClasses(assetClasses);
         setAssetClassCache(assetClasses);
+        setInstrumentMeta(meta);
+        setInstrumentMetaCache(meta);
       }
     };
     resolveSymbols();
@@ -204,15 +223,17 @@ export default function PortfolioView() {
     if (!etoroPortfolio?.positions) return [];
 
     const individual = etoroPortfolio.positions.map(pos => {
-      const stock = instrumentMap[pos.instrumentId] || null;
+      const dbStock = instrumentMap[pos.instrumentId] || null;
+      const meta = instrumentMeta[pos.instrumentId];
+      const stock = dbStock || (meta ? { logo50x50: meta.logo50x50, name: meta.name } : null);
       const ticker = getTickerForEtoroPosition(pos);
-      const currentPrice = pos.currentRate || stock?.price || 0;
+      const currentPrice = pos.currentRate || dbStock?.price || 0;
       const shares = pos.shares || 0;
       const marketValue = currentPrice * shares;
       const invested = pos.amount || ((pos.cost_basis || 0) * shares);
       const pnl = pos.netProfit || (marketValue - invested);
       const pnlPercent = invested > 0 ? (pnl / invested) * 100 : 0;
-      const dividendYield = stock?.dividend_yield || 0;
+      const dividendYield = dbStock?.dividend_yield || 0;
       const annualDividendPerShare = currentPrice * (dividendYield / 100);
       const annualIncome = shares * annualDividendPerShare;
 
@@ -264,7 +285,7 @@ export default function PortfolioView() {
         subPositions: group,
       };
     });
-  }, [etoroPortfolio, instrumentMap, getTickerForEtoroPosition]);
+  }, [etoroPortfolio, instrumentMap, instrumentMeta, getTickerForEtoroPosition]);
 
   const allPositions = useMemo(() => {
     const combined = [...enrichedManualPositions, ...enrichedEtoroPositions];
@@ -322,16 +343,23 @@ export default function PortfolioView() {
         if (result.success) {
           const newStock = await Stock.create(result.data);
           stockData = newStock;
-          setStocksMap(prev => ({
-            ...prev,
-            [newStock.ticker.toUpperCase()]: newStock
-          }));
-          setStocks(prev => [newStock, ...prev]);
         }
       }
 
-      const newPosition = await Portfolio.create(data);
-      setPositions(prev => [newPosition, ...prev]);
+      await Portfolio.create(data);
+
+      const [updatedPositions, updatedStocks] = await Promise.all([
+        Portfolio.list(),
+        Stock.list(),
+      ]);
+      setPositions(updatedPositions);
+      setStocks(updatedStocks);
+      const map = {};
+      updatedStocks.forEach(s => {
+        if (s.ticker) map[s.ticker.toUpperCase()] = s;
+      });
+      setStocksMap(map);
+
       setIsAddDialogOpen(false);
       toast.success(`Added ${data.shares} shares of ${data.ticker.toUpperCase()}`);
     } catch (error) {
