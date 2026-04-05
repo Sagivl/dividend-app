@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import {
   MoreHorizontal, Pencil, Trash2, Plus, ExternalLink,
   TrendingUp, TrendingDown, ArrowUpDown, ArrowUp, ArrowDown,
-  Search, ChevronDown, ChevronUp, X, List, DollarSign, Trophy,
+  Search, ChevronDown, ChevronUp, X, List,
   ShoppingCart, Link2, Clock, XCircle, RefreshCw, AlertCircle,
   Loader2, Info,
 } from "lucide-react";
@@ -175,11 +175,6 @@ function SwipeableCard({ children, actions = [] }) {
 const EMPTY_FILTER_MESSAGES = {
   etoro: { title: "No eToro positions", description: "Your eToro account has no open positions. Search for a stock and use Buy to start trading." },
   manual: { title: "No manual positions", description: "You haven't added any positions manually yet. Use the Add Stock button above." },
-  dividend: { title: "No dividend payers", description: "None of your current holdings pay dividends." },
-  'non-dividend': { title: "All holdings pay dividends", description: "Every position in your portfolio is a dividend payer." },
-  'high-yield': { title: "No high-yield positions", description: "None of your holdings yield above 4%. Consider searching for high-yield dividend stocks." },
-  gainers: { title: "No positions in profit", description: "None of your positions are currently showing gains." },
-  losers: { title: "All positions are up", description: "None of your positions are currently at a loss. Nice!" },
 };
 
 export default function HoldingsTab({
@@ -289,11 +284,6 @@ export default function HoldingsTab({
     { id: 'all', label: 'All', icon: List },
     { id: 'etoro', label: 'eToro', icon: TrendingUp },
     { id: 'manual', label: 'Manual', icon: Pencil },
-    { id: 'dividend', label: 'Dividend', icon: DollarSign },
-    { id: 'non-dividend', label: 'Non-Div', icon: X },
-    { id: 'high-yield', label: 'High Yield', icon: Trophy },
-    { id: 'gainers', label: 'Gainers', icon: TrendingUp },
-    { id: 'losers', label: 'Losers', icon: TrendingDown },
   ];
 
   const toggleCardExpanded = (id) => {
@@ -312,16 +302,11 @@ export default function HoldingsTab({
   }, [positions]);
 
   const filterCounts = useMemo(() => {
-    const counts = { all: 0, etoro: 0, manual: 0, dividend: 0, 'non-dividend': 0, 'high-yield': 0, gainers: 0, losers: 0 };
+    const counts = { all: 0, etoro: 0, manual: 0 };
     enrichedPositions.forEach(pos => {
       counts.all++;
       if (pos.source === 'etoro') counts.etoro++;
       if (pos.source === 'manual') counts.manual++;
-      if ((pos.dividendYield || 0) > 0) counts.dividend++;
-      if (!pos.dividendYield || pos.dividendYield === 0) counts['non-dividend']++;
-      if ((pos.dividendYield || 0) > 4) counts['high-yield']++;
-      if (pos.gainLoss !== null && pos.gainLoss > 0) counts.gainers++;
-      if (pos.gainLoss !== null && pos.gainLoss < 0) counts.losers++;
     });
     return counts;
   }, [enrichedPositions]);
@@ -332,16 +317,6 @@ export default function HoldingsTab({
         return enrichedPositions.filter(pos => pos.source === 'etoro');
       case 'manual':
         return enrichedPositions.filter(pos => pos.source === 'manual');
-      case 'dividend':
-        return enrichedPositions.filter(pos => (pos.dividendYield || 0) > 0);
-      case 'non-dividend':
-        return enrichedPositions.filter(pos => !pos.dividendYield || pos.dividendYield === 0);
-      case 'high-yield':
-        return enrichedPositions.filter(pos => (pos.dividendYield || 0) > 4);
-      case 'gainers':
-        return enrichedPositions.filter(pos => pos.gainLoss !== null && pos.gainLoss > 0);
-      case 'losers':
-        return enrichedPositions.filter(pos => pos.gainLoss !== null && pos.gainLoss < 0);
       default:
         return enrichedPositions;
     }

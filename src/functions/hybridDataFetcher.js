@@ -50,7 +50,8 @@ function processData(etoroData, existingData = {}) {
   }
   
   // Fields that should ALWAYS be updated from fresh API data (keep price data in sync)
-  const alwaysUpdateFields = ['market_cap', 'price', 'min_52w', 'max_52w', 'dividend_yield', 'pe_ratio', 'beta', 'roe'];
+  const alwaysUpdateFields = ['market_cap', 'price', 'min_52w', 'max_52w', 'dividend_yield', 'pe_ratio', 'beta', 'roe',
+    'eps', 'eps_diluted', 'eps_growth_1y', 'eps_growth_5y', 'earnings_growth'];
   
   const setIfBetter = (key, value, source) => {
     if (value !== null && value !== undefined && value !== '') {
@@ -154,7 +155,7 @@ function processData(etoroData, existingData = {}) {
     setIfBetter('eps_growth_1y', etoroData.eps_growth_1y, 'etoro');
     setIfBetter('eps_growth_5y', etoroData.eps_growth_5y, 'etoro');
     if (etoroData.eps_growth_5y_source) {
-      merged.eps_growth_5y_source = etoroData.eps_growth_5y_source;
+      result.eps_growth_5y_source = etoroData.eps_growth_5y_source;
     }
     setIfBetter('quarterly_eps_estimate', etoroData.quarterly_eps_estimate, 'etoro');
     setIfBetter('next_earning_estimate', etoroData.next_earning_estimate, 'etoro');

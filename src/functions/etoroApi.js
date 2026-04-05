@@ -552,6 +552,8 @@ export async function fetchEtoroData(symbol) {
         if (rawEpsG5 == null) return null;
         const incomeG5 = detailedInfo?.['5YearAnnualIncomeGrowthRate-Annual']
           ?? detailedInfo?.['5YearAnnualIncomeGrowthRate-TTM']
+          ?? instrument?.['5YearAnnualIncomeGrowthRate-Annual']
+          ?? instrument?.['5YearAnnualIncomeGrowthRate-TTM']
           ?? null;
         if (incomeG5 != null) {
           const signsDiffer = (rawEpsG5 >= 0) !== (incomeG5 >= 0);
@@ -568,6 +570,8 @@ export async function fetchEtoroData(symbol) {
         if (rawEpsG5 == null) return null;
         const incomeG5 = detailedInfo?.['5YearAnnualIncomeGrowthRate-Annual']
           ?? detailedInfo?.['5YearAnnualIncomeGrowthRate-TTM']
+          ?? instrument?.['5YearAnnualIncomeGrowthRate-Annual']
+          ?? instrument?.['5YearAnnualIncomeGrowthRate-TTM']
           ?? null;
         if (incomeG5 != null) {
           const signsDiffer = (rawEpsG5 >= 0) !== (incomeG5 >= 0);
