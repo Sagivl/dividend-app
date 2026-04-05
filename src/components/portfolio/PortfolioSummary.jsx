@@ -2,7 +2,8 @@
 
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, DollarSign, Percent, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, DollarSign, Percent, ArrowUpRight, ArrowDownRight, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
@@ -31,41 +32,64 @@ function formatPercent(value) {
   return `${value.toFixed(2)}%`;
 }
 
-export default function PortfolioSummary({ totals, portfolioYield, positionCount }) {
-  const gainLoss = totals.totalCost > 0 ? totals.totalValue - totals.totalCost : 0;
-  const gainLossPercent = totals.totalCost > 0 ? (gainLoss / totals.totalCost) * 100 : 0;
-  const isPositive = gainLoss >= 0;
+export default function PortfolioSummary({ totals, portfolioYield, positionCount, availableCash, onFilterChange }) {
+  const { totalValue, totalIncome, totalCost, totalPnL } = totals;
+  const hasCostData = totalCost > 0;
+  const pnlPercent = hasCostData ? (totalPnL / totalCost) * 100 : 0;
+  const isPnlPositive = totalPnL >= 0;
 
-  const primaryMetrics = [
+  const metrics = [
+    availableCash !== null && availableCash !== undefined && {
+      label: "Available Cash",
+      value: formatCurrency(availableCash),
+      icon: Wallet,
+      description: "eToro balance",
+      filterTarget: 'etoro',
+    },
     {
       label: "Total Value",
-      value: formatCurrency(totals.totalValue),
+      value: formatCurrency(totalValue),
       icon: DollarSign,
       description: `${positionCount} position${positionCount !== 1 ? 's' : ''}`,
-      highlight: false
+      filterTarget: 'all',
     },
     {
       label: "Annual Income",
-      value: formatCurrency(totals.totalIncome),
+      value: formatCurrency(totalIncome),
       icon: TrendingUp,
-      description: `${formatCurrency(totals.totalIncome / 12)}/mo`,
-      highlight: true
+      description: `${formatCurrency(totalIncome / 12)}/mo`,
+      highlight: true,
+      filterTarget: 'dividend',
     },
     {
       label: "Yield",
       value: formatPercent(portfolioYield),
       icon: Percent,
       description: "Portfolio avg",
-      highlight: false
+      filterTarget: 'high-yield',
+    },
+  ].filter(Boolean);
+
+  const handleCardClick = (filterTarget) => {
+    if (onFilterChange && filterTarget) {
+      onFilterChange(filterTarget);
     }
-  ];
+  };
 
   return (
     <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-      {/* Primary Metrics Row */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        {primaryMetrics.map((metric) => (
-          <Card key={metric.label} className="bg-card/50">
+      <div className={`grid gap-2 sm:gap-4 ${
+        metrics.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
+      }`}>
+        {metrics.map((metric) => (
+          <Card
+            key={metric.label}
+            className={cn(
+              "bg-card/50 transition-all",
+              onFilterChange && metric.filterTarget && "cursor-pointer hover:bg-card/70 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
+            )}
+            onClick={() => handleCardClick(metric.filterTarget)}
+          >
             <CardContent className="p-3 sm:pt-6 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex-1 min-w-0">
@@ -84,31 +108,36 @@ export default function PortfolioSummary({ totals, portfolioYield, positionCount
         ))}
       </div>
 
-      {/* Gain/Loss Card - Only shown when cost basis exists */}
-      {totals.totalCost > 0 && (
-        <Card className={`bg-card/50 border-l-4 ${isPositive ? 'border-l-green-500' : 'border-l-red-500'}`}>
+      {hasCostData && (
+        <Card
+          className={cn(
+            `bg-card/50 border-l-4 ${isPnlPositive ? 'border-l-green-500' : 'border-l-red-500'}`,
+            onFilterChange && "cursor-pointer hover:bg-card/70 hover:shadow-md active:scale-[0.995] transition-all"
+          )}
+          onClick={() => handleCardClick(isPnlPositive ? 'gainers' : 'losers')}
+        >
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Unrealized P/L</p>
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  <p className={`text-sm sm:text-xl font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {isPositive ? '+' : ''}{formatCompactCurrency(gainLoss)}
+                  <p className={`text-sm sm:text-xl font-bold ${isPnlPositive ? 'text-green-500' : 'text-red-500'}`}>
+                    {isPnlPositive ? '+' : ''}{formatCompactCurrency(totalPnL)}
                   </p>
                   <span className={`text-xs sm:text-sm font-medium px-1.5 py-0.5 rounded ${
-                    isPositive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                    isPnlPositive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
                   }`}>
-                    {isPositive ? '+' : ''}{gainLossPercent.toFixed(1)}%
+                    {isPnlPositive ? '+' : ''}{pnlPercent.toFixed(1)}%
                   </span>
                 </div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                  Cost basis: {formatCompactCurrency(totals.totalCost)}
+                  Cost basis: {formatCompactCurrency(totalCost)}
                 </p>
               </div>
               <div className={`hidden sm:flex items-center justify-center w-10 h-10 rounded-full ${
-                isPositive ? 'bg-green-500/10' : 'bg-red-500/10'
+                isPnlPositive ? 'bg-green-500/10' : 'bg-red-500/10'
               }`}>
-                {isPositive ? (
+                {isPnlPositive ? (
                   <ArrowUpRight className="h-5 w-5 text-green-500" />
                 ) : (
                   <ArrowDownRight className="h-5 w-5 text-red-500" />

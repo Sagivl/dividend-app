@@ -281,7 +281,7 @@ export default function OnboardingModal({ open, onComplete }) {
   const getStepTitle = () => {
     switch (currentStep) {
       case STEPS.EMAIL:
-        return "Welcome to Dividend Analyzer";
+        return "Welcome to DiviToro";
       case STEPS.GOAL:
         return "What's your investment goal?";
       case STEPS.RISK:

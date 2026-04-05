@@ -1,6 +1,9 @@
 import { User } from './User';
+import { getPortfolio as getEtoroPortfolio, getAccountBalance } from '../functions/etoroTradingApi';
 
 const STORAGE_KEY = 'dividend_app_portfolio';
+const ETORO_CACHE_KEY = 'dividend_app_etoro_portfolio_cache';
+const ETORO_CACHE_TTL = 30_000; // 30 seconds
 
 const getStoredPortfolio = () => {
   if (typeof window === 'undefined') return [];
@@ -169,5 +172,103 @@ export const Portfolio = {
     const filtered = items.filter(item => item.created_by !== user.email);
     savePortfolio(filtered);
     return true;
-  }
+  },
+
+  async fetchEtoroPortfolio() {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(ETORO_CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < ETORO_CACHE_TTL) {
+            return data;
+          }
+        }
+      }
+
+      const rawData = await getEtoroPortfolio();
+
+      // PnL response nests everything under clientPortfolio
+      const pnlData = rawData?.clientPortfolio || rawData;
+
+      const positions = (pnlData?.positions || []).map(pos => ({
+        id: `etoro_${pos.positionID}`,
+        positionId: pos.positionID,
+        instrumentId: pos.instrumentID,
+        shares: pos.units || 0,
+        cost_basis: pos.openRate || null,
+        purchase_date: pos.openDateTime?.split('T')[0] || null,
+        currentRate: pos.unrealizedPnL?.closeRate || null,
+        leverage: pos.leverage || 1,
+        isBuy: pos.isBuy !== false,
+        stopLossRate: pos.stopLossRate || null,
+        takeProfitRate: pos.takeProfitRate || null,
+        netProfit: pos.unrealizedPnL?.pnL || 0,
+        amount: pos.amount || 0,
+        source: 'etoro',
+      }));
+
+      const orders = (pnlData?.ordersForOpen || []).map(order => ({
+        orderId: order.orderID || order.orderId,
+        instrumentId: order.instrumentID || order.instrumentId,
+        amount: order.amount || 0,
+        amountInUnits: order.amountInUnits || order.units || 0,
+        isBuy: order.isBuy !== false,
+        openDateTime: order.openDateTime || null,
+        leverage: order.leverage || 1,
+        stopLossRate: order.stopLossRate || null,
+        takeProfitRate: order.takeProfitRate || null,
+        orderType: order.orderType,
+        statusId: order.statusId,
+      }));
+
+      const pendingLimitOrders = (pnlData?.orders || []).map(order => ({
+        orderId: order.orderID || order.orderId,
+        instrumentId: order.instrumentID || order.instrumentId,
+        amount: order.amount || 0,
+        amountInUnits: order.units || 0,
+        isBuy: order.isBuy !== false,
+        openDateTime: order.openDateTime || null,
+        leverage: order.leverage || 1,
+        rate: order.rate,
+        isLimitOrder: true,
+      }));
+
+      const result = {
+        positions,
+        orders,
+        pendingOrders: pendingLimitOrders,
+        credit: pnlData?.credit ?? null,
+        mirrors: pnlData?.mirrors || [],
+        raw: rawData,
+      };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(ETORO_CACHE_KEY, JSON.stringify({
+          data: result,
+          timestamp: Date.now(),
+        }));
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[Portfolio] Error fetching eToro portfolio:', error);
+      throw error;
+    }
+  },
+
+  async fetchEtoroBalance() {
+    try {
+      return await getAccountBalance();
+    } catch (error) {
+      console.error('[Portfolio] Error fetching eToro balance:', error);
+      throw error;
+    }
+  },
+
+  clearEtoroCache() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ETORO_CACHE_KEY);
+    }
+  },
 };

@@ -16,7 +16,7 @@ export default function HomePage() {
           <TrendingUp className="h-12 w-12 sm:h-16 sm:w-16 text-green-400" />
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-100 mb-4">
-          Welcome to Dividend Analyzer
+          Welcome to DiviToro
         </h1>
         <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto px-4">
           Your comprehensive tool for discovering, analyzing, and tracking dividend-paying stocks. Make informed investment decisions with powerful data insights.
@@ -114,7 +114,7 @@ export default function HomePage() {
       </div>
 
       <footer className="mt-12 sm:mt-16 text-center text-slate-500 text-sm pb-6">
-        <p>&copy; {new Date().getFullYear()} Dividend Analyzer. All data is for informational purposes only.</p>
+        <p>&copy; {new Date().getFullYear()} DiviToro. All data is for informational purposes only.</p>
       </footer>
     </PageContainer>
   );

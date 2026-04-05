@@ -3,7 +3,7 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Dividend Analyzer',
+  title: 'DiviToro',
   description: 'Analyze dividend stocks and make informed investment decisions',
 };
 

@@ -31,18 +31,18 @@ export default function Layout({ children, currentPageName }) {
           description: "Analyze stocks"
         },
         {
-          name: "Portfolio",
-          displayName: "Portfolio",
-          path: createPageUrl("Portfolio"),
-          icon: Wallet,
-          description: "Track your holdings"
-        },
-        {
           name: "SuggestedStocks",
           displayName: "Watchlist",
           path: createPageUrl("SuggestedStocks"),
           icon: Star,
           description: "View your watchlist"
+        },
+        {
+          name: "Portfolio",
+          displayName: "Portfolio",
+          path: createPageUrl("Portfolio"),
+          icon: Wallet,
+          description: "Track your holdings"
         },
         {
             name: "CompareStocks",
@@ -88,7 +88,7 @@ export default function Layout({ children, currentPageName }) {
             >
               <TrendingUp className="h-8 w-8 text-primary mr-2 lg:mr-3 group-hover:text-primary/80 transition-colors" />
               <h1 className="text-xl font-bold text-foreground group-hover:text-foreground/80 transition-colors hidden lg:block">
-                Dividend Analyzer
+                DiviToro
               </h1>
             </div>
             

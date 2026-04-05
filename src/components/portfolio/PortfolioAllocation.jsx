@@ -37,15 +37,32 @@ export default function PortfolioAllocation({ positions, totalValue, onSelectPos
   const chartData = useMemo(() => {
     if (!positions || positions.length === 0) return [];
     
-    return positions
-      .map((pos, index) => ({
-        id: pos.id,
-        ticker: pos.ticker,
-        name: pos.stock?.name || pos.ticker,
-        value: pos.marketValue || 0,
-        percent: totalValue > 0 ? ((pos.marketValue || 0) / totalValue) * 100 : 0,
+    const byTicker = {};
+    positions.forEach((pos) => {
+      const key = pos.ticker;
+      if (!byTicker[key]) {
+        byTicker[key] = {
+          ids: [pos.id],
+          ticker: pos.ticker,
+          name: pos.stock?.name || pos.ticker,
+          value: pos.marketValue || 0,
+          logo: pos.stock?.logo50x50,
+        };
+      } else {
+        byTicker[key].value += pos.marketValue || 0;
+        byTicker[key].ids.push(pos.id);
+        if (!byTicker[key].logo && pos.stock?.logo50x50) {
+          byTicker[key].logo = pos.stock.logo50x50;
+        }
+      }
+    });
+
+    return Object.values(byTicker)
+      .map((item, index) => ({
+        ...item,
+        id: item.ids[0],
+        percent: totalValue > 0 ? (item.value / totalValue) * 100 : 0,
         color: COLORS[index % COLORS.length],
-        logo: pos.stock?.logo50x50
       }))
       .sort((a, b) => b.value - a.value);
   }, [positions, totalValue]);

@@ -411,6 +411,7 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
     const epsDiluted = stock?.eps_diluted;
     const epsGrowth1Y = stock?.eps_growth_1y;
     const epsGrowth5Y = stock?.eps_growth_5y;
+    const epsGrowth5YSource = stock?.eps_growth_5y_source;
     const quarterlyEstimate = stock?.quarterly_eps_estimate;
     const nextEarningEstimate = stock?.next_earning_estimate;
     const earningsGrowth = stock?.earnings_growth;
@@ -458,10 +459,12 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
               </div>
             )}
 
-            {/* EPS Growth 5Y */}
+            {/* EPS Growth 5Y (may fall back to Income Growth if split-corrupted) */}
             {epsGrowth5Y !== null && epsGrowth5Y !== undefined && (
               <div className="bg-slate-700/50 rounded-lg p-4 text-center">
-                <div className="text-slate-400 text-xs sm:text-sm mb-1">EPS Growth (5Y)</div>
+                <div className="text-slate-400 text-xs sm:text-sm mb-1">
+                  {epsGrowth5YSource === 'income' ? 'Income Growth (5Y)' : 'EPS Growth (5Y)'}
+                </div>
                 <div className={`text-2xl sm:text-3xl font-bold ${parseFloat(epsGrowth5Y) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                   {parseFloat(epsGrowth5Y) >= 0 ? '+' : ''}{parseFloat(epsGrowth5Y).toFixed(1)}%
                 </div>

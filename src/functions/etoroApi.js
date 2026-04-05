@@ -543,7 +543,39 @@ export async function fetchEtoroData(symbol) {
       eps: instrument?.['epS-TTM'] || detailedInfo?.['epS-TTM'] || detailedInfo?.['epS-Annual'] || null,
       eps_diluted: instrument?.['epsFullyDiluted-TTM'] || detailedInfo?.['epsFullyDiluted-TTM'] || detailedInfo?.['epsFullyDiluted-Annual'] || null,
       eps_growth_1y: instrument?.epsGrowth1Year || detailedInfo?.epsGrowth1Year || null,
-      eps_growth_5y: instrument?.epsGrowth5Years || detailedInfo?.epsGrowth5Years || null,
+      // eToro's epsGrowth5Years is NOT split-adjusted — it compares post-split EPS to
+      // pre-split EPS, producing wildly wrong values for stocks that split (e.g. NVDA 10:1).
+      // Cross-check against income growth: if they have opposite signs AND diverge by >50pp,
+      // the EPS number is likely corrupted by a split → use income growth instead.
+      eps_growth_5y: (() => {
+        const rawEpsG5 = instrument?.epsGrowth5Years ?? detailedInfo?.epsGrowth5Years ?? null;
+        if (rawEpsG5 == null) return null;
+        const incomeG5 = detailedInfo?.['5YearAnnualIncomeGrowthRate-Annual']
+          ?? detailedInfo?.['5YearAnnualIncomeGrowthRate-TTM']
+          ?? null;
+        if (incomeG5 != null) {
+          const signsDiffer = (rawEpsG5 >= 0) !== (incomeG5 >= 0);
+          const gap = Math.abs(rawEpsG5 - incomeG5);
+          if (signsDiffer && gap > 50) {
+            console.log(`[eToro] eps_growth_5y (${rawEpsG5.toFixed(1)}%) looks split-corrupted vs income_growth_5y (${incomeG5.toFixed(1)}%) — using income growth`);
+            return incomeG5;
+          }
+        }
+        return rawEpsG5;
+      })(),
+      eps_growth_5y_source: (() => {
+        const rawEpsG5 = instrument?.epsGrowth5Years ?? detailedInfo?.epsGrowth5Years ?? null;
+        if (rawEpsG5 == null) return null;
+        const incomeG5 = detailedInfo?.['5YearAnnualIncomeGrowthRate-Annual']
+          ?? detailedInfo?.['5YearAnnualIncomeGrowthRate-TTM']
+          ?? null;
+        if (incomeG5 != null) {
+          const signsDiffer = (rawEpsG5 >= 0) !== (incomeG5 >= 0);
+          const gap = Math.abs(rawEpsG5 - incomeG5);
+          if (signsDiffer && gap > 50) return 'income';
+        }
+        return 'eps';
+      })(),
       quarterly_eps_estimate: instrument?.quarterlyEPSValue || detailedInfo?.quarterlyEPSValue || null,
       next_earning_estimate: instrument?.nextEarningEstimateAverage || detailedInfo?.nextEarningEstimateAverage || null,
       last_earning_estimate: instrument?.lastEarningEstimateAverage || detailedInfo?.lastEarningEstimateAverage || null,
@@ -588,9 +620,6 @@ export async function fetchEtoroData(symbol) {
       revenue_growth_5y: detailedInfo?.['5YearAnnualRevenueGrowthRate-Annual'] || detailedInfo?.['5YearAnnualRevenueGrowthRate-TTM'] || null,
       income_growth_3y: detailedInfo?.['3YearAnnualIncomeGrowthRate-Annual'] || detailedInfo?.['3YearAnnualIncomeGrowthRate-TTM'] || null,
       income_growth_5y: detailedInfo?.['5YearAnnualIncomeGrowthRate-Annual'] || detailedInfo?.['5YearAnnualIncomeGrowthRate-TTM'] || null,
-      earnings_growth: detailedInfo?.['earningsGrowth-TTM'] || null,
-      eps_growth_1y: detailedInfo?.epsGrowth1Year || null,
-      eps_growth_5y: detailedInfo?.epsGrowth5Years || null,
       
       // Analyst data
       analyst_consensus: detailedInfo?.tipranksConsensus || null,

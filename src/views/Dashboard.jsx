@@ -10,6 +10,7 @@ import StockAnalysis from "../components/StockAnalysis";
 import SuggestedAssets from "../components/SuggestedAssets";
 import OnboardingModal from "../components/OnboardingModal";
 import WatchlistButton from "../components/WatchlistButton";
+import BuyButton from "../components/trading/BuyButton";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, PieChart, Loader2, CheckCircle, Search } from "lucide-react";
@@ -398,13 +399,14 @@ export default function Dashboard() {
             }}
             className="space-y-4"
           >
-            {/* Stock Header with Watchlist Button */}
+            {/* Stock Header with Watchlist and Buy Buttons */}
             {selectedStock.ticker && (
               <div className="flex items-center justify-center gap-2 mb-2">
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-100">
                   {selectedStock.ticker.toUpperCase()}
                 </h2>
                 <WatchlistButton ticker={selectedStock.ticker} size="md" />
+                <BuyButton stock={selectedStock} size="md" />
               </div>
             )}
             

@@ -153,6 +153,9 @@ function processData(etoroData, existingData = {}) {
     setIfBetter('earnings_growth', etoroData.earnings_growth, 'etoro');
     setIfBetter('eps_growth_1y', etoroData.eps_growth_1y, 'etoro');
     setIfBetter('eps_growth_5y', etoroData.eps_growth_5y, 'etoro');
+    if (etoroData.eps_growth_5y_source) {
+      merged.eps_growth_5y_source = etoroData.eps_growth_5y_source;
+    }
     setIfBetter('quarterly_eps_estimate', etoroData.quarterly_eps_estimate, 'etoro');
     setIfBetter('next_earning_estimate', etoroData.next_earning_estimate, 'etoro');
     setIfBetter('last_earning_estimate', etoroData.last_earning_estimate, 'etoro');
