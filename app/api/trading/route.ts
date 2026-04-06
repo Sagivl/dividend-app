@@ -47,6 +47,7 @@ const ALLOWED_ACTIONS = [
   'close-position',
   'cancel-open-order',
   'cancel-close-order',
+  'cancel-limit-order',
   'portfolio',
   'aggregate',
   'history',
