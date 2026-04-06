@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Portfolio } from "@/entities/Portfolio";
 import { Stock } from "@/entities/Stock";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Wallet, Calendar, Plus } from "lucide-react";
 import HoldingsTab from "../components/portfolio/HoldingsTab";
 import DividendCalendar from "../components/portfolio/DividendCalendar";
@@ -15,8 +16,8 @@ import { cancelOpenOrder, cancelLimitOrder, getTradingEnvironment } from "@/func
 import { UserSettings } from "@/entities/UserSettings";
 import { etoroFetch } from "@/functions/etoroFetch";
 import { toast } from "react-hot-toast";
-import { PageContainer, PageHeader, LoadingState } from "@/components/layout";
-import { Link2, Settings, ArrowRight } from "lucide-react";
+import { PageContainer, LoadingState } from "@/components/layout";
+import { Link2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 const INSTRUMENT_CACHE_KEY = 'etoro_instrument_symbols';
@@ -72,6 +73,10 @@ export default function PortfolioView() {
   const [instrumentMeta, setInstrumentMeta] = useState(getInstrumentMetaCache);
   const [etoroLastSynced, setEtoroLastSynced] = useState(null);
   const [showAllHoldings, setShowAllHoldings] = useState(false);
+  const etoroLoadGenRef = useRef(0);
+  const soldPositionsRef = useRef(new Map());
+  const sellRefreshTimerRef = useRef(null);
+  const SOLD_GRACE_MS = 30_000;
 
   const instrumentMap = useMemo(() => {
     const map = {};
@@ -109,7 +114,30 @@ export default function PortfolioView() {
     }
   }, []);
 
+  const applyGraceFilter = useCallback((positions) => {
+    const now = Date.now();
+    for (const [id, entry] of soldPositionsRef.current) {
+      if (now - entry.timestamp > SOLD_GRACE_MS) soldPositionsRef.current.delete(id);
+    }
+    if (soldPositionsRef.current.size === 0) return positions;
+
+    return positions
+      .filter(p => {
+        const entry = soldPositionsRef.current.get(String(p.positionId));
+        if (!entry) return true;
+        if (entry.isPartial) return true;
+        return false;
+      })
+      .map(p => {
+        const entry = soldPositionsRef.current.get(String(p.positionId));
+        if (!entry || !entry.isPartial) return p;
+        const newShares = Math.max(0, (p.shares || 0) - entry.unitsDeducted);
+        return { ...p, shares: newShares, units: newShares };
+      });
+  }, []);
+
   const loadEtoroPortfolio = useCallback(async (showRefreshing = false) => {
+    const loadId = ++etoroLoadGenRef.current;
     try {
       if (showRefreshing) setEtoroRefreshing(true);
       else setEtoroLoading(true);
@@ -117,16 +145,24 @@ export default function PortfolioView() {
 
       Portfolio.clearEtoroCache();
       const data = await Portfolio.fetchEtoroPortfolio();
-      setEtoroPortfolio(data);
+      if (loadId !== etoroLoadGenRef.current) return;
+      const filtered = {
+        ...data,
+        positions: applyGraceFilter(data.positions || []),
+      };
+      setEtoroPortfolio(filtered);
       setEtoroLastSynced(new Date());
     } catch (err) {
       console.error('Failed to load eToro portfolio:', err);
+      if (loadId !== etoroLoadGenRef.current) return;
       setEtoroError(err.message || 'Failed to load eToro portfolio');
     } finally {
-      setEtoroLoading(false);
-      setEtoroRefreshing(false);
+      if (loadId === etoroLoadGenRef.current) {
+        setEtoroLoading(false);
+        setEtoroRefreshing(false);
+      }
     }
-  }, []);
+  }, [applyGraceFilter]);
 
   useEffect(() => {
     const init = async () => {
@@ -159,51 +195,82 @@ export default function PortfolioView() {
   }, [etoroConnected, loadEtoroPortfolio]);
 
   useEffect(() => {
-    const allIds = [
-      ...(etoroPortfolio?.positions || []).map(p => p.instrumentId),
-      ...(etoroPortfolio?.orders || []).map(o => o.instrumentId),
-    ];
+    const toKey = (id) => String(id);
+    const rawIds = [
+      ...(etoroPortfolio?.positions || []).map((p) => p.instrumentId),
+      ...(etoroPortfolio?.orders || []).map((o) => o.instrumentId),
+      ...(etoroPortfolio?.pendingOrders || []).map((o) => o.instrumentId),
+    ].filter((id) => id != null && id !== '');
+    const allIds = [...new Set(rawIds)];
     if (allIds.length === 0) return;
 
-    const unknownIds = allIds.filter(id =>
-      id && !instrumentMap[id] && (
-        !resolvedSymbols[id] || !(id in instrumentAssetClasses) || !instrumentMeta[id]?.hasDividendData
-      )
-    );
+    const unknownIds = allIds.filter((rawId) => {
+      const k = toKey(rawId);
+      if (instrumentMap[rawId]) return false;
+      if (instrumentMeta[k]?.resolutionFailed) return false;
+      return (
+        !resolvedSymbols[k] ||
+        !(k in instrumentAssetClasses) ||
+        !instrumentMeta[k]?.hasDividendData
+      );
+    });
     if (unknownIds.length === 0) return;
 
-    const uniqueIds = [...new Set(unknownIds)];
     let cancelled = false;
 
     const resolveSymbols = async () => {
       const cache = { ...resolvedSymbols };
       const assetClasses = { ...instrumentAssetClasses };
       const meta = { ...instrumentMeta };
-      for (const id of uniqueIds) {
+      let changed = false;
+
+      const markFailed = (rawInstrumentId) => {
+        const k = toKey(rawInstrumentId);
+        if (meta[k]?.resolutionFailed) return;
+        cache[k] = cache[k] || `ID:${rawInstrumentId}`;
+        assetClasses[k] = assetClasses[k] ?? 'Unknown';
+        meta[k] = {
+          ...(meta[k] || {}),
+          hasDividendData: false,
+          resolutionFailed: true,
+        };
+        changed = true;
+      };
+
+      for (const rawId of unknownIds) {
         if (cancelled) break;
+        const k = toKey(rawId);
         try {
-          const res = await etoroFetch(`/api/etoro/api/v1/market-data/search?instrumentId=${id}`);
+          const res = await etoroFetch(`/api/etoro/api/v1/market-data/search?instrumentId=${rawId}`);
           if (res.ok) {
             const data = await res.json();
             const item = data.items?.[0];
             if (item) {
-              cache[id] = item.internalSymbolFull || item.symbolFull || `ID:${id}`;
-              assetClasses[id] = item.internalAssetClassName || 'Unknown';
+              cache[k] = item.internalSymbolFull || item.symbolFull || `ID:${rawId}`;
+              assetClasses[k] = item.internalAssetClassName || 'Unknown';
               const divRate = parseFloat(item['dividendRate-TTM']) || parseFloat(item['dividendRate-Annual']) || 0;
               const currentPrice = parseFloat(item.currentRate) || 0;
               const divYield = currentPrice > 0 ? (divRate / currentPrice) * 100 : 0;
-              meta[id] = {
+              meta[k] = {
                 logo50x50: item.logo50x50 || null,
                 name: item.internalInstrumentDisplayName || null,
                 dividendYield: divYield,
                 dividendRate: divRate,
                 hasDividendData: true,
+                resolutionFailed: false,
               };
+              changed = true;
+            } else {
+              markFailed(rawId);
             }
+          } else {
+            markFailed(rawId);
           }
-        } catch { /* ignore */ }
+        } catch {
+          markFailed(rawId);
+        }
       }
-      if (!cancelled) {
+      if (!cancelled && changed) {
         setResolvedSymbols(cache);
         setInstrumentCache(cache);
         setInstrumentAssetClasses(assetClasses);
@@ -215,7 +282,7 @@ export default function PortfolioView() {
     resolveSymbols();
 
     return () => { cancelled = true; };
-  }, [etoroPortfolio, instrumentMap, resolvedSymbols, instrumentAssetClasses]);
+  }, [etoroPortfolio, instrumentMap, resolvedSymbols, instrumentAssetClasses, instrumentMeta]);
 
   const getTickerForEtoroPosition = useCallback((position) => {
     const stock = instrumentMap[position.instrumentId];
@@ -447,6 +514,30 @@ export default function PortfolioView() {
     }
   };
 
+  const handleSellSuccess = useCallback(({ positionId, isPartial, unitsDeducted }) => {
+    soldPositionsRef.current.set(String(positionId), {
+      timestamp: Date.now(),
+      isPartial: !!isPartial,
+      unitsDeducted: unitsDeducted ?? 0,
+    });
+
+    setEtoroPortfolio(prev => {
+      if (!prev) return prev;
+      return { ...prev, positions: applyGraceFilter(prev.positions) };
+    });
+
+    if (sellRefreshTimerRef.current) clearTimeout(sellRefreshTimerRef.current);
+    sellRefreshTimerRef.current = setTimeout(() => {
+      loadEtoroPortfolio(true);
+    }, 5000);
+  }, [loadEtoroPortfolio, applyGraceFilter]);
+
+  useEffect(() => {
+    return () => {
+      if (sellRefreshTimerRef.current) clearTimeout(sellRefreshTimerRef.current);
+    };
+  }, []);
+
   const handleCancelOrder = async (orderId, isLimitOrder = false) => {
     try {
       if (isLimitOrder) {
@@ -471,68 +562,63 @@ export default function PortfolioView() {
 
   return (
     <PageContainer maxWidth="6xl" bottomPadding>
-      <PageHeader
-        title="My Portfolio"
-        icon={Wallet}
-        action={
-          <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="gap-1.5 sm:gap-2 bg-[#3FB923] hover:bg-green-600 text-white">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Stock</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
-        }
-      />
-
-      <DemoModeBanner className="mb-4 sm:mb-6" />
+      <div className="flex items-center justify-between mb-3 sm:mb-5">
+        <div className="flex items-center gap-2.5">
+          <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-green-400 flex-shrink-0" />
+          <h1 className="text-lg sm:text-xl font-semibold text-slate-100">Portfolio</h1>
+          <DemoModeBanner />
+        </div>
+        <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="gap-1.5 bg-[#3FB923] hover:bg-green-600 text-white">
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Add Stock</span>
+          <span className="sm:hidden">Add</span>
+        </Button>
+      </div>
 
       {!etoroConnectedLoading && !etoroConnected && (
-        <div className="mb-4 sm:mb-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-          <div className="flex items-start sm:items-center gap-3 flex-col sm:flex-row">
-            <div className="flex items-center gap-2 text-blue-400">
-              <Link2 className="h-5 w-5 shrink-0" />
-              <p className="text-sm font-medium">Connect your eToro account to see your personal portfolio.</p>
-            </div>
-            <Link
-              href="/Settings"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-xs font-medium transition-colors shrink-0"
-            >
-              <Settings className="h-3.5 w-3.5" />
-              Go to Settings
-              <ArrowRight className="h-3 w-3" />
-            </Link>
+        <div className="mb-3 sm:mb-4 flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/15">
+          <div className="flex items-center gap-2 text-blue-400/80">
+            <Link2 className="h-4 w-4 shrink-0" />
+            <p className="text-xs font-medium">Connect eToro to sync your portfolio</p>
           </div>
+          <Link
+            href="/Settings"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 text-[11px] font-medium transition-colors shrink-0"
+          >
+            Settings
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
       )}
 
-      <div className="flex items-center justify-end mb-3">
-        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showAllHoldings}
-            onChange={(e) => setShowAllHoldings(e.target.checked)}
-            className="rounded border-border"
-          />
-          Show all holdings (including non-dividend)
-        </label>
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4 sm:mb-6 bg-slate-800 border border-slate-700 rounded-lg">
-          <TabsTrigger
-            value="portfolio"
-            className="gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
-          >
-            <Wallet className="h-4 w-4" />
-            Portfolio
-          </TabsTrigger>
-          <TabsTrigger
-            value="calendar"
-            className="gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
-          >
-            <Calendar className="h-4 w-4" />
-            Calendar
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <TabsList className="bg-slate-800/60 border border-slate-700/50 rounded-lg h-9">
+            <TabsTrigger
+              value="portfolio"
+              className="gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:text-slate-200"
+            >
+              <Wallet className="h-3.5 w-3.5" />
+              Holdings
+            </TabsTrigger>
+            <TabsTrigger
+              value="calendar"
+              className="gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:text-slate-200"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Calendar
+            </TabsTrigger>
+          </TabsList>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">All holdings</span>
+            <Switch
+              checked={showAllHoldings}
+              onCheckedChange={setShowAllHoldings}
+              className="data-[state=checked]:bg-[#3FB923]"
+            />
+          </label>
+        </div>
 
         <TabsContent value="portfolio">
           <HoldingsTab
@@ -548,6 +634,7 @@ export default function PortfolioView() {
             resolvedSymbols={resolvedSymbols}
             onCancelOrder={handleCancelOrder}
             onRefreshEtoro={() => loadEtoroPortfolio(true)}
+            onSellSuccess={handleSellSuccess}
             etoroRefreshing={etoroRefreshing}
             etoroLoading={etoroLoading}
             etoroError={etoroError}

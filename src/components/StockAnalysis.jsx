@@ -178,7 +178,9 @@ const StockAnalysis = ({ stock }) => {
   const hasValue = (field) => {
     if (!stock) return false;
     const value = stock[field];
-    return value !== undefined && value !== null && value.toString().trim() !== "" && value.toString() !== "0";
+    if (value === undefined || value === null) return false;
+    const s = String(value).trim();
+    return s !== '' && s !== '0';
   };
 
   // Clean the dividend growth data for display and calculations
@@ -188,22 +190,20 @@ const StockAnalysis = ({ stock }) => {
     return cleaned;
   }, [stock?.avg_div_growth_5y]);
 
-  // Check what data we have for Price Analysis
+  // Show price card whenever we have a price; 52w range can be N/A (eToro sometimes omits it).
   const hasPriceAnalysisData = useMemo(() => {
     if (!stock) return false;
-    const hasPrice = hasValue('price');
-    const hasMin = hasValue('min_52w');
-    const hasMax = hasValue('max_52w');
-    return hasPrice && hasMin && hasMax;
-  }, [stock?.price, stock?.min_52w, stock?.max_52w]);
+    return hasValue('price');
+  }, [stock?.price]);
 
-  // Check what data we have for Dividend Analysis
+  // Show dividend card if any core dividend metric exists (do not require all three).
   const hasDividendAnalysisData = useMemo(() => {
     if (!stock) return false;
-    const hasYield = hasValue('dividend_yield');
-    const hasGrowth = cleanedDivGrowth5y !== null;
-    const hasPayout = hasValue('payout_ratio');
-    return hasYield && hasGrowth && hasPayout;
+    return (
+      hasValue('dividend_yield') ||
+      cleanedDivGrowth5y !== null ||
+      hasValue('payout_ratio')
+    );
   }, [stock?.dividend_yield, stock?.payout_ratio, cleanedDivGrowth5y]);
 
   const missingFinancialStrengthFields = useMemo(() => {
@@ -309,7 +309,7 @@ const StockAnalysis = ({ stock }) => {
   }, [stock?.analyst_recommendation]);
 
   // Ensure stock is provided and has a ticker for unique identification
-  if (!stock || !stock.ticker || stock.ticker.trim() === "") {
+  if (!stock || !stock.ticker || String(stock.ticker).trim() === "") {
      return (
       <Card className="mt-4 sm:mt-6 bg-slate-800 border border-slate-700">
         <CardContent className="p-4 sm:p-8 text-center">

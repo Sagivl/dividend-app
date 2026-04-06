@@ -10,6 +10,7 @@
 import { UserSettings } from '@/entities/UserSettings';
 
 const TRADING_API = '/api/trading';
+const READ_TIMEOUT_MS = 45_000;
 
 let lastTradeTimestamps = [];
 const MAX_TRADES_PER_MINUTE = 18; // buffer below the 20/min limit
@@ -28,8 +29,24 @@ function recordTrade() {
   lastTradeTimestamps.push(Date.now());
 }
 
+function readTimeoutSignal() {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(READ_TIMEOUT_MS);
+  }
+  return null;
+}
+
+function mergeAbortSignals(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([a, b]);
+  }
+  return b;
+}
+
 async function tradingFetch(action, options = {}) {
-  const { method = 'GET', body } = options;
+  const { method = 'GET', body, signal: callerSignal } = options;
   const url = `${TRADING_API}?action=${action}`;
 
   const keys = await UserSettings.getEtoroKeys();
@@ -47,7 +64,19 @@ async function tradingFetch(action, options = {}) {
     fetchOptions.body = JSON.stringify(body);
   }
 
-  const response = await fetch(url, fetchOptions);
+  const timeoutSig = readTimeoutSignal();
+  const merged = mergeAbortSignals(callerSignal, timeoutSig);
+  if (merged) fetchOptions.signal = merged;
+
+  let response;
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (e) {
+    if (e?.name === 'AbortError' || e?.name === 'TimeoutError') {
+      throw new Error('eToro request timed out. Check your connection and try again.');
+    }
+    throw e;
+  }
   const data = await response.json();
 
   if (!response.ok) {

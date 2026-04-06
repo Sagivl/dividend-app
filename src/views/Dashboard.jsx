@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Stock } from "@/entities/Stock";
+import { Stock, mergeFetchedStockForDisplay } from "@/entities/Stock";
 import { User } from "@/entities/User";
 import StockSearch from "../components/StockSearch";
 import StockDataInput from "../components/StockDataInput";
@@ -161,7 +161,6 @@ export default function Dashboard() {
       const result = await fetchHybridStockData(ticker, existingStock || { ticker });
       
       if (result.success && result.data) {
-        const user = await User.me();
         let savedStock;
         
         if (existingStock?.id) {
@@ -172,23 +171,24 @@ export default function Dashboard() {
           savedStock = await Stock.create({ 
             ...result.data, 
             ticker,
-            created_by: user?.email 
           });
         }
+
+        const displayStock = mergeFetchedStockForDisplay(savedStock, result.data);
         
         // Update local state efficiently
         setStocks(prevStocks => {
           const index = prevStocks.findIndex(s => s.id === savedStock.id);
           if (index > -1) {
             const newStocks = [...prevStocks];
-            newStocks[index] = savedStock;
+            newStocks[index] = displayStock;
             return newStocks;
           } else {
-            return [savedStock, ...prevStocks];
+            return [displayStock, ...prevStocks];
           }
         });
         
-        setSelectedStock(savedStock);
+        setSelectedStock(displayStock);
         setActiveTab("analysis");
       } else {
         console.log("Fetch failed, using existing data or fallback");
@@ -201,7 +201,7 @@ export default function Dashboard() {
         }
       }
     } catch (error) {
-      console.error("Error in search:", error);
+      console.error("Error in search:", error?.message || error?.code || JSON.stringify(error));
       const ticker = query.toUpperCase().trim();
       setSelectedStock({ ticker });
       setActiveTab("input");
@@ -213,34 +213,58 @@ export default function Dashboard() {
   // Process URL params when searchParams changes (handles Link navigation)
   useEffect(() => {
     if (isInitialStocksLoading) return;
-    
+
     const tickerFromUrl = searchParams?.get("ticker");
     const tabFromUrl = searchParams?.get("tab");
-    
-    // Only process if the TICKER has changed - tab changes are handled by onValueChange
-    if (tickerFromUrl && tickerFromUrl.toUpperCase() !== lastProcessedSearch.current) {
-      lastProcessedSearch.current = tickerFromUrl.toUpperCase();
+
+    if (!tickerFromUrl) return;
+
+    const upper = tickerFromUrl.toUpperCase();
+    const selectedUpper = selectedStock?.ticker?.toUpperCase();
+    const urlTickerIsNew = upper !== lastProcessedSearch.current;
+    const selectionMismatch = selectedUpper !== upper;
+
+    // New ticker in URL → always load + fetch fresh market data for analysis
+    if (urlTickerIsNew) {
+      lastProcessedSearch.current = upper;
       console.log("Processing URL ticker:", tickerFromUrl, "tab:", tabFromUrl);
       handleSearch(tickerFromUrl, tabFromUrl || "analysis");
+      return;
     }
-  }, [isInitialStocksLoading, searchParams, handleSearch]);
 
-  // Handle case when URL has no ticker (e.g., navigating back to empty Dashboard)
+    // Same URL ticker but state lost (e.g. ref reset, race) — run fetch without changing dedupe
+    if (selectionMismatch && !isLoading) {
+      console.log("Resyncing from URL ticker:", tickerFromUrl);
+      handleSearch(tickerFromUrl, tabFromUrl || "analysis");
+    }
+  }, [
+    isInitialStocksLoading,
+    searchParams,
+    handleSearch,
+    selectedStock?.ticker,
+    isLoading,
+  ]);
+
+  // When the URL has no ticker, clear selection and reset the URL dedupe ref.
+  // Otherwise lastProcessedSearch stays on the old symbol and reopening the same
+  // asset (e.g. Dashboard → suggestions → same ticker) never runs handleSearch,
+  // so analysis never gets a fresh eToro fetch.
   useEffect(() => {
     if (isInitialStocksLoading) return;
-    
+
     const tickerFromUrl = searchParams?.get("ticker");
-    
-    if (!tickerFromUrl && selectedStock) {
-      setSelectedStock(null);
-      setActiveTab("input");
-      // Force reload stocks from localStorage to get any updates made during analysis view
-      // Use a slight delay to ensure the state updates are processed
-      setTimeout(async () => {
-        console.log("Force reloading stocks from localStorage after navigation");
-        const freshStocks = await Stock.list("-last_updated");
-        setStocks(freshStocks || []);
-      }, 50);
+
+    if (!tickerFromUrl) {
+      lastProcessedSearch.current = "";
+      if (selectedStock) {
+        setSelectedStock(null);
+        setActiveTab("input");
+        setTimeout(async () => {
+          console.log("Reloading stocks after leaving asset URL");
+          const freshStocks = await Stock.list("-last_updated");
+          setStocks(freshStocks || []);
+        }, 50);
+      }
     }
   }, [searchParams, isInitialStocksLoading, selectedStock]);
 
@@ -262,31 +286,27 @@ export default function Dashboard() {
     
     try {
       const user = await User.me();
-      if (!user?.email) {
+      if (!user?.id) {
         alert("Error: You must be logged in to save stock data.");
-        setIsLoading(false); // Make sure loading state is reset
+        setIsLoading(false);
         return;
       }
 
       console.log(`Saving stock: ${stockData.ticker}`);
       let savedStock;
       
-      // Check if stock already exists for THIS USER (by ticker and created_by)
       const existingStocks = await Stock.filter({ 
         ticker: stockData.ticker.toUpperCase(),
-        created_by: user.email
       });
       
       if (existingStocks.length > 0) {
-        // Update existing stock owned by this user
         const stockToUpdate = existingStocks[0];
         console.log(`Updating existing stock ID: ${stockToUpdate.id}`);
         savedStock = await Stock.update(stockToUpdate.id, stockData);
       } else {
-        // Create new stock for this user with created_by field for history tracking
         console.log(`Creating new stock: ${stockData.ticker}`);
         const { id, ...dataForCreate } = stockData;
-        savedStock = await Stock.create({ ...dataForCreate, created_by: user.email });
+        savedStock = await Stock.create(dataForCreate);
       }
       
       // Update local state directly instead of making multiple API calls

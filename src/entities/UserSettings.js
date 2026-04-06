@@ -1,89 +1,91 @@
-import { User } from './User';
+import { getSupabaseBrowserClient, getSessionUserId } from '@/lib/supabaseClient';
 import { Portfolio } from './Portfolio';
 
-const STORAGE_KEY = 'dividend_app_user_settings';
+const supabase = getSupabaseBrowserClient();
 
-const getStoredSettings = () => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveAllSettings = (items) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-};
+const getUserId = getSessionUserId;
 
 export const UserSettings = {
   async get() {
-    const items = getStoredSettings();
-    const user = await User.me();
-    return items.find(item => item.created_by === user.email) || null;
+    const userId = await getUserId();
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
   },
 
-  async save(data) {
-    const items = getStoredSettings();
-    const user = await User.me();
-    const index = items.findIndex(item => item.created_by === user.email);
+  async save(updates) {
+    const userId = await getUserId();
+    const existing = await this.get();
 
-    const entry = {
-      ...(index >= 0 ? items[index] : {}),
-      ...data,
-      created_by: user.email,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (index >= 0) {
-      items[index] = entry;
+    if (existing) {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .update(updates)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
     } else {
-      entry.created_at = new Date().toISOString();
-      items.push(entry);
+      const { data, error } = await supabase
+        .from('user_settings')
+        .insert({ user_id: userId, ...updates })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
     }
-
-    saveAllSettings(items);
-    return entry;
   },
 
   async getEtoroUserKey() {
     const settings = await this.get();
-    return settings?.etoroUserKey || null;
+    return settings?.etoro_user_key || null;
   },
 
   async getEtoroApiKey() {
     const settings = await this.get();
-    return settings?.etoroApiKey || null;
+    return settings?.etoro_api_key || null;
   },
 
   async getEtoroKeys() {
-    const settings = await this.get();
-    return {
-      apiKey: settings?.etoroApiKey || null,
-      userKey: settings?.etoroUserKey || null,
-    };
+    try {
+      const settings = await this.get();
+      return {
+        apiKey: settings?.etoro_api_key || null,
+        userKey: settings?.etoro_user_key || null,
+      };
+    } catch (err) {
+      // etoroFetch must not throw when logged out — the API route can use server env keys.
+      if (err?.message === 'Not authenticated') {
+        return { apiKey: null, userKey: null };
+      }
+      throw err;
+    }
   },
 
   async setEtoroKeys(apiKey, userKey) {
     Portfolio.clearEtoroCache();
-    return this.save({ etoroApiKey: apiKey, etoroUserKey: userKey });
+    return this.save({ etoro_api_key: apiKey, etoro_user_key: userKey });
   },
 
   async setEtoroUserKey(key) {
     Portfolio.clearEtoroCache();
-    return this.save({ etoroUserKey: key });
+    return this.save({ etoro_user_key: key });
   },
 
   async clearEtoroKeys() {
     Portfolio.clearEtoroCache();
-    return this.save({ etoroApiKey: null, etoroUserKey: null });
+    return this.save({ etoro_api_key: null, etoro_user_key: null });
   },
 
   async clearEtoroUserKey() {
     Portfolio.clearEtoroCache();
-    return this.save({ etoroUserKey: null });
+    return this.save({ etoro_user_key: null });
   },
 
   async isEtoroConnected() {

@@ -73,6 +73,7 @@ function TradeForm({
   positionId,
   positionUnits,
   onClose,
+  onSellSuccess,
   isDrawer = false,
 }) {
   const [orderType, setOrderType] = useState('amount');
@@ -163,6 +164,13 @@ function TradeForm({
       }
 
       setResult({ success: true, data: response });
+      if (isSell && onSellSuccess) {
+        onSellSuccess({
+          positionId,
+          isPartial: partialClose,
+          unitsDeducted: partialClose ? Number(closeUnits) : null,
+        });
+      }
     } catch (err) {
       setResult({ success: false, error: err.message });
     } finally {
@@ -517,6 +525,7 @@ export default function TradeDialog({
   isOpen: marketIsOpen,
   positionId,
   positionUnits,
+  onSellSuccess,
 }) {
   const isDesktop = useMediaQuery('(min-width: 640px)');
 
@@ -541,6 +550,7 @@ export default function TradeDialog({
     positionId,
     positionUnits,
     onClose: handleClose,
+    onSellSuccess,
   };
 
   if (isDesktop) {

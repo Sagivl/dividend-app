@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   
   // Rewrite /etoro-api/* to the eToro public API (for client-side compatibility)
   // The actual API key injection happens in the API route
@@ -23,8 +23,7 @@ const nextConfig = {
     ],
   },
 
-  // Transpile Base44 SDK if needed
-  transpilePackages: ['@base44/sdk'],
+  transpilePackages: [],
 };
 
 module.exports = nextConfig;

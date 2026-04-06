@@ -347,7 +347,7 @@ export default function SettingsView() {
               <p>Your personal eToro portfolio will appear in the Portfolio page, filtered to dividend-paying stocks and ETFs.</p>
             </div>
             <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border text-xs">
-              <p><strong className="text-foreground">Security:</strong> Your keys are stored locally in your browser and only sent to our server to proxy requests to eToro. You can revoke them anytime from eToro settings.</p>
+              <p><strong className="text-foreground">Security:</strong> Your keys are stored securely in your account and only used to proxy requests to eToro. You can revoke them anytime from eToro settings.</p>
             </div>
           </CardContent>
         </Card>

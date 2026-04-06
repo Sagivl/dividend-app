@@ -680,7 +680,8 @@ export async function fetchEtoroData(symbol) {
  */
 export async function isEtoroAvailable() {
   try {
-    const response = await etoroFetch(`${ETORO_PROXY}/api/v1/market-data/search?internalSymbolFull=AAPL&pageSize=1&fields=instrumentId`);
+    // Do not add &fields= — eToro search can misbehave with fields (see searchBySymbol note).
+    const response = await etoroFetch(`${ETORO_PROXY}/api/v1/market-data/search?internalSymbolFull=AAPL&pageSize=1`);
     return response.ok;
   } catch {
     return false;

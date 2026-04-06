@@ -1,24 +1,13 @@
-import { User } from './User';
+import { getSupabaseBrowserClient, getSessionUserId } from '@/lib/supabaseClient';
 import { getPortfolio as getEtoroPortfolio, getAccountBalance } from '../functions/etoroTradingApi';
 
-const STORAGE_KEY = 'dividend_app_portfolio';
-const ETORO_CACHE_KEY = 'dividend_app_etoro_portfolio_cache';
-const ETORO_CACHE_TTL = 30_000; // 30 seconds
+const supabase = getSupabaseBrowserClient();
 
-const getStoredPortfolio = () => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
+let _etoroCache = null;
+let _etoroCacheTime = 0;
+const ETORO_CACHE_TTL = 30_000;
 
-const savePortfolio = (items) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-};
+const getUserId = getSessionUserId;
 
 export const Portfolio = {
   schema() {
@@ -30,15 +19,24 @@ export const Portfolio = {
         cost_basis: { type: 'number' },
         purchase_date: { type: 'string' },
         created_at: { type: 'string' },
-        created_by: { type: 'string' }
+        user_id: { type: 'string' }
       }
     };
   },
 
   async list() {
-    const items = getStoredPortfolio();
-    const user = await User.me();
-    return items.filter(item => item.created_by === user.email);
+    const userId = await getUserId();
+    const { data, error } = await supabase
+      .from('portfolio_positions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(row => ({
+      ...row,
+      created_by: row.user_id,
+    }));
   },
 
   async create(data) {
@@ -47,89 +45,95 @@ export const Portfolio = {
     }
 
     const normalizedTicker = data.ticker.toUpperCase().trim();
-    const items = getStoredPortfolio();
-    const user = await User.me();
+    const userId = await getUserId();
 
-    const exists = items.some(
-      item => item.ticker === normalizedTicker && item.created_by === user.email
-    );
+    const { data: existing } = await supabase
+      .from('portfolio_positions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('ticker', normalizedTicker)
+      .single();
 
-    if (exists) {
+    if (existing) {
       throw new Error(`Position for ${normalizedTicker} already exists. Use update instead.`);
     }
 
-    const newItem = {
-      id: `portfolio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ticker: normalizedTicker,
-      shares: Number(data.shares),
-      cost_basis: data.cost_basis ? Number(data.cost_basis) : null,
-      purchase_date: data.purchase_date || null,
-      created_at: new Date().toISOString(),
-      created_by: user.email
-    };
+    const { data: newItem, error } = await supabase
+      .from('portfolio_positions')
+      .insert({
+        user_id: userId,
+        ticker: normalizedTicker,
+        shares: Number(data.shares),
+        cost_basis: data.cost_basis ? Number(data.cost_basis) : null,
+        purchase_date: data.purchase_date || null,
+      })
+      .select()
+      .single();
 
-    items.unshift(newItem);
-    savePortfolio(items);
-    return newItem;
+    if (error) throw error;
+    return { ...newItem, created_by: newItem.user_id };
   },
 
   async update(id, data) {
-    const items = getStoredPortfolio();
-    const user = await User.me();
-    
-    const index = items.findIndex(
-      item => item.id === id && item.created_by === user.email
-    );
+    const userId = await getUserId();
+    const updates = {};
 
-    if (index === -1) {
-      throw new Error('Position not found');
-    }
+    if (data.shares !== undefined) updates.shares = Number(data.shares);
+    if (data.cost_basis !== undefined) updates.cost_basis = data.cost_basis ? Number(data.cost_basis) : null;
+    if (data.purchase_date !== undefined) updates.purchase_date = data.purchase_date;
 
-    const updatedItem = {
-      ...items[index],
-      ...(data.shares !== undefined && { shares: Number(data.shares) }),
-      ...(data.cost_basis !== undefined && { cost_basis: data.cost_basis ? Number(data.cost_basis) : null }),
-      ...(data.purchase_date !== undefined && { purchase_date: data.purchase_date }),
-      updated_at: new Date().toISOString()
-    };
+    const { data: updated, error } = await supabase
+      .from('portfolio_positions')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
 
-    items[index] = updatedItem;
-    savePortfolio(items);
-    return updatedItem;
+    if (error) throw error;
+    return { ...updated, created_by: updated.user_id };
   },
 
   async delete(id) {
-    const items = getStoredPortfolio();
-    const user = await User.me();
+    const userId = await getUserId();
+    const { error } = await supabase
+      .from('portfolio_positions')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
 
-    const filtered = items.filter(
-      item => !(item.id === id && item.created_by === user.email)
-    );
-
-    if (filtered.length !== items.length) {
-      savePortfolio(filtered);
-      return true;
-    }
-
-    return false;
+    if (error) throw error;
+    return true;
   },
 
   async get(id) {
-    const items = getStoredPortfolio();
-    const user = await User.me();
-    return items.find(item => item.id === id && item.created_by === user.email) || null;
+    const userId = await getUserId();
+    const { data, error } = await supabase
+      .from('portfolio_positions')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data ? { ...data, created_by: data.user_id } : null;
   },
 
   async getByTicker(ticker) {
     if (!ticker) return null;
-    
-    const normalizedTicker = ticker.toUpperCase().trim();
-    const items = getStoredPortfolio();
-    const user = await User.me();
 
-    return items.find(
-      item => item.ticker === normalizedTicker && item.created_by === user.email
-    ) || null;
+    const normalizedTicker = ticker.toUpperCase().trim();
+    const userId = await getUserId();
+
+    const { data, error } = await supabase
+      .from('portfolio_positions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('ticker', normalizedTicker)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data ? { ...data, created_by: data.user_id } : null;
   },
 
   async hasTicker(ticker) {
@@ -166,34 +170,24 @@ export const Portfolio = {
   },
 
   async clear() {
-    const items = getStoredPortfolio();
-    const user = await User.me();
-    
-    const filtered = items.filter(item => item.created_by !== user.email);
-    savePortfolio(filtered);
+    const userId = await getUserId();
+    const { error } = await supabase
+      .from('portfolio_positions')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) throw error;
     return true;
   },
 
   async fetchEtoroPortfolio() {
     try {
-      if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem(ETORO_CACHE_KEY);
-        if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < ETORO_CACHE_TTL) {
-            return data;
-          }
-        }
+      if (_etoroCache && Date.now() - _etoroCacheTime < ETORO_CACHE_TTL) {
+        return _etoroCache;
       }
 
       const rawData = await getEtoroPortfolio();
-
       const pnlData = rawData?.clientPortfolio || rawData;
-
-      console.log('[Portfolio] PnL keys:', Object.keys(pnlData || {}));
-      console.log('[Portfolio] positions:', (pnlData?.positions || []).length,
-        '| ordersForOpen:', (pnlData?.ordersForOpen || []).length,
-        '| orders:', (pnlData?.orders || []).length);
 
       const positions = (pnlData?.positions || []).map(pos => ({
         id: `etoro_${pos.positionID}`,
@@ -212,7 +206,7 @@ export const Portfolio = {
         source: 'etoro',
       }));
 
-      const marketOrders = (pnlData?.ordersForOpen || []).map(order => ({
+      const orders = (pnlData?.ordersForOpen || []).map(order => ({
         orderId: order.orderID || order.orderId,
         instrumentId: order.instrumentID || order.instrumentId,
         amount: order.amount || 0,
@@ -226,7 +220,7 @@ export const Portfolio = {
         statusId: order.statusId,
       }));
 
-      const limitOrders = (pnlData?.orders || []).map(order => ({
+      const pendingLimitOrders = (pnlData?.orders || []).map(order => ({
         orderId: order.orderID || order.orderId,
         instrumentId: order.instrumentID || order.instrumentId,
         amount: order.amount || 0,
@@ -238,24 +232,17 @@ export const Portfolio = {
         isLimitOrder: true,
       }));
 
-      const allPendingOrders = [...marketOrders, ...limitOrders];
-      console.log('[Portfolio] Total pending orders:', allPendingOrders.length);
-
       const result = {
         positions,
-        orders: allPendingOrders,
-        pendingOrders: limitOrders,
+        orders,
+        pendingOrders: pendingLimitOrders,
         credit: pnlData?.credit ?? null,
         mirrors: pnlData?.mirrors || [],
         raw: rawData,
       };
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(ETORO_CACHE_KEY, JSON.stringify({
-          data: result,
-          timestamp: Date.now(),
-        }));
-      }
+      _etoroCache = result;
+      _etoroCacheTime = Date.now();
 
       return result;
     } catch (error) {
@@ -274,8 +261,7 @@ export const Portfolio = {
   },
 
   clearEtoroCache() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(ETORO_CACHE_KEY);
-    }
+    _etoroCache = null;
+    _etoroCacheTime = 0;
   },
 };

@@ -8,8 +8,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   DollarSign,
   TrendingUp,
@@ -23,14 +21,12 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
-  Mail,
 } from "lucide-react";
 
 const STEPS = {
-  EMAIL: 0,
-  GOAL: 1,
-  RISK: 2,
-  TOUR: 3,
+  GOAL: 0,
+  RISK: 1,
+  TOUR: 2,
 };
 
 const investmentGoals = [
@@ -112,8 +108,7 @@ const tourFeatures = [
 ];
 
 export default function OnboardingModal({ open, onComplete }) {
-  const [currentStep, setCurrentStep] = useState(STEPS.EMAIL);
-  const [email, setEmail] = useState("");
+  const [currentStep, setCurrentStep] = useState(STEPS.GOAL);
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [selectedRisk, setSelectedRisk] = useState(null);
 
@@ -124,25 +119,19 @@ export default function OnboardingModal({ open, onComplete }) {
   };
 
   const handleBack = () => {
-    if (currentStep > STEPS.EMAIL) {
+    if (currentStep > STEPS.GOAL) {
       setCurrentStep(currentStep - 1);
     }
   };
 
   const handleComplete = () => {
     onComplete({
-      email: email.trim().toLowerCase(),
       investment_goal: selectedGoal,
       risk_tolerance: selectedRisk,
     });
   };
 
-  const isValidEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
   const canProceed = () => {
-    if (currentStep === STEPS.EMAIL) return isValidEmail(email);
     if (currentStep === STEPS.GOAL) return selectedGoal !== null;
     if (currentStep === STEPS.RISK) return selectedRisk !== null;
     return true;
@@ -190,33 +179,6 @@ export default function OnboardingModal({ open, onComplete }) {
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case STEPS.EMAIL:
-        return (
-          <div className="space-y-4">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-900/30 mb-4">
-                <Mail className="h-8 w-8 text-blue-400" />
-              </div>
-              <p className="text-slate-300">
-                Enter your email to personalize your experience
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-200">
-                Email address
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
-          </div>
-        );
-
       case STEPS.GOAL:
         return (
           <div className="space-y-3">
@@ -280,8 +242,6 @@ export default function OnboardingModal({ open, onComplete }) {
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case STEPS.EMAIL:
-        return "Welcome to DiviToro";
       case STEPS.GOAL:
         return "What's your investment goal?";
       case STEPS.RISK:
@@ -295,8 +255,6 @@ export default function OnboardingModal({ open, onComplete }) {
 
   const getStepDescription = () => {
     switch (currentStep) {
-      case STEPS.EMAIL:
-        return "Let's get you started";
       case STEPS.GOAL:
         return "Help us personalize your experience";
       case STEPS.RISK:
@@ -317,7 +275,7 @@ export default function OnboardingModal({ open, onComplete }) {
       >
         <DialogHeader>
           <div className="flex items-center justify-center gap-2 mb-2">
-            {[STEPS.EMAIL, STEPS.GOAL, STEPS.RISK, STEPS.TOUR].map((step) => (
+            {[STEPS.GOAL, STEPS.RISK, STEPS.TOUR].map((step) => (
               <div
                 key={step}
                 className={`h-2 w-12 rounded-full transition-colors ${
@@ -339,7 +297,7 @@ export default function OnboardingModal({ open, onComplete }) {
         </div>
 
         <DialogFooter className="flex flex-row justify-between sm:justify-between gap-2 pt-4 border-t border-slate-700">
-          {currentStep > STEPS.EMAIL ? (
+          {currentStep > STEPS.GOAL ? (
             <Button
               type="button"
               variant="outline"

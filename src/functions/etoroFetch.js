@@ -19,6 +19,15 @@ export function clearKeysCache() {
   _cacheTimestamp = 0;
 }
 
+const ETORO_FETCH_TIMEOUT_MS = 25_000;
+
+function etoroTimeoutSignal() {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ETORO_FETCH_TIMEOUT_MS);
+  }
+  return null;
+}
+
 export async function etoroFetch(url, options = {}) {
   const keys = await getKeys();
   const headers = { ...options.headers };
@@ -30,5 +39,15 @@ export async function etoroFetch(url, options = {}) {
     headers['x-etoro-user-key'] = keys.userKey;
   }
 
-  return fetch(url, { ...options, headers });
+  const { signal: callerSignal, ...rest } = options;
+  const timeoutSig = etoroTimeoutSignal();
+  let signal = callerSignal;
+  if (timeoutSig) {
+    signal =
+      callerSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function'
+        ? AbortSignal.any([callerSignal, timeoutSig])
+        : timeoutSig;
+  }
+
+  return fetch(url, { ...rest, headers, ...(signal ? { signal } : {}) });
 }

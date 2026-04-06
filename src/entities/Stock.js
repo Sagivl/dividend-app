@@ -1,21 +1,69 @@
-const STORAGE_KEY = 'dividend_app_stocks';
-const SAMPLE_VERSION_KEY = 'dividend_app_sample_version';
-const CURRENT_SAMPLE_VERSION = '2'; // Increment this to force re-seed
+import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
 
-const getStoredStocks = () => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
+const supabase = getSupabaseBrowserClient();
+
+/** Column names that actually exist in the `stocks` Supabase table.
+ *  Only these keys are sent to Postgres on create / update. */
+const DB_COLUMNS = new Set([
+  'ticker', 'exchange', 'name', 'sector', 'price',
+  'min_52w', 'max_52w', 'target_1y', 'market_cap',
+  'pe_ratio', 'sector_pe', 'sp500_pe', 'eps',
+  'dividend_yield', 'ex_date', 'dividend_pay_date',
+  'dividend_years', 'avg_div_growth_5y', 'avg_div_growth_20y',
+  'div_distribution_sequence', 'payout_ratio', 'chowder',
+  'beta', 'roe', 'credit_rating',
+  'diluted_shares', 'basic_shares',
+  'ebit', 'ebitda', 'net_income',
+  'net_income_prev', 'net_income_prev2', 'net_income_minus_buyback',
+  'total_debt', 'shareholder_equity', 'ebt',
+  'five_year_total_return', 'dividend_stability_score',
+  'revenue_history', 'eps_history', 'price_history',
+  'dividend_history', 'eps_surprise_history',
+  'news_sentiment', 'analyst_recommendation',
+  'logo50x50', 'logo150x150',
+  'last_updated', 'is_sample',
+]);
+
+/** Columns stored as `bigint` or `integer` in Postgres — must be whole numbers. */
+const INTEGER_COLUMNS = new Set([
+  'diluted_shares', 'basic_shares', 'dividend_years',
+]);
+
+function sanitizeForPersistence(data) {
+  if (!data || typeof data !== 'object') return data;
+  const out = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (!DB_COLUMNS.has(k)) continue;
+    if (v === undefined) continue;
+    if (INTEGER_COLUMNS.has(k) && typeof v === 'number') {
+      out[k] = Math.round(v);
+    } else {
+      out[k] = v;
+    }
   }
-};
+  return out;
+}
 
-const saveStocks = (stocks) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stocks));
-};
+/**
+ * Merge a row returned from Supabase with the object we just fetched from eToro
+ * so the Analysis tab always reflects the latest API values (even if the DB
+ * response omits columns or lags).
+ */
+export function mergeFetchedStockForDisplay(dbRow, fetchedRow) {
+  if (!dbRow && !fetchedRow) return null;
+  if (!fetchedRow) return dbRow;
+  if (!dbRow) return { ...fetchedRow };
+  const merged = { ...dbRow };
+  for (const [key, val] of Object.entries(fetchedRow)) {
+    if (key.startsWith('_')) continue;
+    if (val === null || val === undefined) continue;
+    if (val === '' && merged[key] !== undefined) continue;
+    merged[key] = val;
+  }
+  merged.id = dbRow.id;
+  if (dbRow.ticker) merged.ticker = dbRow.ticker;
+  return merged;
+}
 
 export const Stock = {
   schema() {
@@ -73,143 +121,125 @@ export const Stock = {
   },
 
   async list(sortBy = '-last_updated') {
-    let stocks = getStoredStocks();
-    
-    // De-duplicate by ticker, keeping the most recently updated version
-    const stocksByTicker = new Map();
-    stocks.forEach(stock => {
-      if (!stock.ticker) return;
-      const ticker = stock.ticker.toUpperCase();
-      const existing = stocksByTicker.get(ticker);
-      if (!existing) {
-        stocksByTicker.set(ticker, stock);
-      } else {
-        // Keep the one with the most recent last_updated timestamp
-        const existingDate = new Date(existing.last_updated || 0);
-        const newDate = new Date(stock.last_updated || 0);
-        if (newDate > existingDate) {
-          stocksByTicker.set(ticker, stock);
-        }
-      }
-    });
-    
-    // If duplicates were found, save the cleaned data back to localStorage
-    const uniqueStocks = Array.from(stocksByTicker.values());
-    if (uniqueStocks.length < stocks.length) {
-      console.log(`Cleaned up ${stocks.length - uniqueStocks.length} duplicate stock entries`);
-      saveStocks(uniqueStocks);
-    }
-    stocks = uniqueStocks;
-    
+    let query = supabase.from('stocks').select('*');
+
     if (sortBy.startsWith('-')) {
       const field = sortBy.slice(1);
-      stocks.sort((a, b) => {
-        const aVal = a[field] || '';
-        const bVal = b[field] || '';
-        return bVal.localeCompare?.(aVal) || (bVal - aVal);
-      });
+      query = query.order(field, { ascending: false });
+    } else {
+      query = query.order(sortBy, { ascending: true });
     }
-    return stocks;
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   async filter(criteria) {
-    const stocks = getStoredStocks();
-    return stocks.filter(stock => {
-      return Object.entries(criteria).every(([key, value]) => {
-        if (typeof value === 'string') {
-          return stock[key]?.toLowerCase() === value.toLowerCase();
-        }
-        return stock[key] === value;
-      });
-    });
+    let query = supabase.from('stocks').select('*');
+
+    for (const [key, value] of Object.entries(criteria)) {
+      query = query.eq(key, value);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   async create(data) {
-    const stocks = getStoredStocks();
-    const newStock = {
-      ...data,
-      id: `stock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      created_at: new Date().toISOString(),
-      last_updated: new Date().toISOString(),
-    };
-    stocks.unshift(newStock);
-    saveStocks(stocks);
-    return newStock;
+    const clean = sanitizeForPersistence(data);
+    const ticker = clean.ticker?.toUpperCase?.()?.trim?.();
+    const row = ticker ? { ...clean, ticker } : clean;
+
+    const { data: stock, error } = await supabase
+      .from('stocks')
+      .upsert(row, { onConflict: 'ticker', ignoreDuplicates: false })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return stock;
   },
 
   async update(id, data) {
-    const stocks = getStoredStocks();
-    const index = stocks.findIndex(s => s.id === id);
-    if (index === -1) {
-      throw new Error('Stock not found');
-    }
-    const updatedStock = {
-      ...stocks[index],
-      ...data,
-      last_updated: new Date().toISOString(),
-    };
-    stocks[index] = updatedStock;
-    saveStocks(stocks);
-    return updatedStock;
+    const clean = sanitizeForPersistence(data);
+    const { data: updated, error } = await supabase
+      .from('stocks')
+      .update(clean)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return updated;
   },
 
   async delete(id) {
-    const stocks = getStoredStocks();
-    const filtered = stocks.filter(s => s.id !== id);
-    saveStocks(filtered);
+    const { error } = await supabase
+      .from('stocks')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
     return true;
   },
 
   async get(id) {
-    const stocks = getStoredStocks();
-    return stocks.find(s => s.id === id) || null;
+    const { data, error } = await supabase
+      .from('stocks')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
   },
 
   async seedSampleStocks() {
-    const existing = getStoredStocks();
-    const storedVersion = typeof window !== 'undefined' ? localStorage.getItem(SAMPLE_VERSION_KEY) : null;
-    const needsReseed = existing.length === 0 || storedVersion !== CURRENT_SAMPLE_VERSION;
-    
-    if (needsReseed) {
-      try {
-        // Clear existing sample stocks if upgrading version
-        if (storedVersion !== CURRENT_SAMPLE_VERSION && existing.length > 0) {
-          const nonSampleStocks = existing.filter(s => !s.is_sample);
-          saveStocks(nonSampleStocks);
-          console.log(`Cleared old sample stocks, keeping ${nonSampleStocks.length} user stocks`);
-        }
-        
-        const sampleStocksModule = await import('@/data/sampleStocks');
-        const sampleStocks = sampleStocksModule.default;
-        
-        for (const stock of sampleStocks) {
-          await this.create({ ...stock, is_sample: true });
-        }
-        
-        // Save the current version
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(SAMPLE_VERSION_KEY, CURRENT_SAMPLE_VERSION);
-        }
-        
-        console.log(`Seeded ${sampleStocks.length} sample stocks (version ${CURRENT_SAMPLE_VERSION})`);
-        return true;
-      } catch (error) {
-        console.error('Error seeding sample stocks:', error);
-        return false;
-      }
+    const { data: existing } = await supabase
+      .from('stocks')
+      .select('id')
+      .eq('is_sample', true)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return false;
     }
-    return false;
+
+    try {
+      const sampleStocksModule = await import('@/data/sampleStocks');
+      const sampleStocks = sampleStocksModule.default;
+
+      for (const stock of sampleStocks) {
+        await this.create({ ...stock, is_sample: true });
+      }
+
+      console.log(`Seeded ${sampleStocks.length} sample stocks`);
+      return true;
+    } catch (error) {
+      console.error('Error seeding sample stocks:', error);
+      return false;
+    }
   },
 
   async clearSampleStocks() {
-    const stocks = getStoredStocks();
-    const filtered = stocks.filter(s => !s.is_sample);
-    saveStocks(filtered);
+    const { error } = await supabase
+      .from('stocks')
+      .delete()
+      .eq('is_sample', true);
+
+    if (error) throw error;
     return true;
   },
 
   async hasSampleStocks() {
-    const stocks = getStoredStocks();
-    return stocks.some(s => s.is_sample === true);
+    const { data } = await supabase
+      .from('stocks')
+      .select('id')
+      .eq('is_sample', true)
+      .limit(1);
+
+    return data && data.length > 0;
   }
 };

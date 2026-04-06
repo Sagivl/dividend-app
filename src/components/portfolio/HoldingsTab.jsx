@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,8 @@ import {
   TrendingUp, TrendingDown, ArrowUpDown, ArrowUp, ArrowDown,
   Search, ChevronDown, ChevronUp, X, List,
   ShoppingCart, Link2, Clock, XCircle, RefreshCw, AlertCircle,
-  Loader2, Info,
+  Loader2,
 } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import PortfolioSummary from "./PortfolioSummary";
 import PortfolioAllocation from "./PortfolioAllocation";
 import DividendTimeline from "./DividendTimeline";
@@ -190,6 +189,7 @@ export default function HoldingsTab({
   resolvedSymbols = {},
   onCancelOrder,
   onRefreshEtoro,
+  onSellSuccess,
   etoroRefreshing,
   etoroLoading,
   etoroError,
@@ -204,6 +204,7 @@ export default function HoldingsTab({
   const [activeFilter, setActiveFilter] = useState('all');
   const [inlineEdit, setInlineEdit] = useState(null);
   const [tradeDialog, setTradeDialog] = useState(null);
+  const sellSucceededRef = useRef(false);
   const lastSyncedText = etoroLastSynced
     ? `Updated ${etoroLastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
     : null;
@@ -547,30 +548,23 @@ export default function HoldingsTab({
       />
 
       {etoroError && (
-        <Card className="bg-red-500/5 border-red-500/20 mb-4 sm:mb-6">
-          <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-red-400">eToro data unavailable</p>
-              <p className="text-xs text-muted-foreground truncate">{etoroError}</p>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onRefreshEtoro}
-              disabled={etoroRefreshing}
-              className="gap-1.5 shrink-0 text-red-400 border-red-400/30 hover:bg-red-500/10"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", etoroRefreshing && "animate-spin")} />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="mb-3 sm:mb-4 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/15">
+          <AlertCircle className="h-3.5 w-3.5 text-red-400/80 shrink-0" />
+          <p className="text-[11px] text-red-400/80 flex-1 min-w-0 truncate">{etoroError}</p>
+          <button
+            onClick={onRefreshEtoro}
+            disabled={etoroRefreshing}
+            className="text-[11px] text-red-400 hover:text-red-300 font-medium shrink-0"
+          >
+            <RefreshCw className={cn("h-3 w-3 inline mr-1", etoroRefreshing && "animate-spin")} />
+            Retry
+          </button>
+        </div>
       )}
 
 
       {positions.length >= 2 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
           <PortfolioAllocation
             positions={enrichedPositions}
             totalValue={totals.totalValue}
@@ -582,40 +576,28 @@ export default function HoldingsTab({
       )}
 
       {positions.length === 1 && (
-        <div className="mb-4 sm:mb-6">
+        <div className="mb-3 sm:mb-4">
           <DividendTimeline
             positions={enrichedPositions}
           />
         </div>
       )}
 
-      <Card className="bg-card/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between mb-3">
+      <Card className="bg-card/40 border-slate-700/40">
+        <CardHeader className="pb-2 px-3 sm:px-6 pt-3 sm:pt-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-lg">Positions</CardTitle>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-[260px]">
-                    <p>Swipe cards for quick actions. Some stocks appear in both Manual and eToro sources and are shown as separate rows.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <CardTitle className="text-sm sm:text-base font-medium">Positions</CardTitle>
               {hasPendingOrders && (
-                <Badge variant="outline" className="text-amber-400 border-amber-400/30 text-[10px] px-1.5">
-                  <Clock className="h-3 w-3 mr-1" />
-                  {pendingOrders.length} pending
+                <Badge variant="outline" className="text-amber-400 border-amber-400/30 text-[10px] px-1.5 h-5">
+                  <Clock className="h-2.5 w-2.5 mr-1" />
+                  {pendingOrders.length}
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {lastSyncedText && (
-                <span className="text-[11px] text-muted-foreground/60 hidden sm:inline">
+                <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">
                   {lastSyncedText}
                 </span>
               )}
@@ -624,50 +606,36 @@ export default function HoldingsTab({
                 size="sm"
                 onClick={onRefreshEtoro}
                 disabled={etoroRefreshing}
-                className="gap-1.5"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
               >
-                <RefreshCw className={cn("h-4 w-4", etoroRefreshing && "animate-spin")} />
-                <span className="hidden sm:inline">Refresh</span>
+                <RefreshCw className={cn("h-3.5 w-3.5", etoroRefreshing && "animate-spin")} />
               </Button>
             </div>
           </div>
 
           {positions.length >= 3 && (
-            <div className="overflow-x-auto pb-1 -mx-2 px-2">
-              <div className="flex gap-2 min-w-max">
-                {filterOptions.map((filter) => {
-                  const FilterIcon = filter.icon;
-                  const isActive = activeFilter === filter.id;
-                  const count = filterCounts[filter.id] || 0;
-                  return (
-                    <Button
-                      key={filter.id}
-                      variant={isActive ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setActiveFilter(filter.id)}
-                      className={cn(
-                        "flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap transition-colors",
-                        isActive
-                          ? "bg-[#3FB923] hover:bg-green-600 text-white border-[#3FB923]"
-                          : "border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-slate-100"
-                      )}
-                    >
-                      <FilterIcon className="h-3.5 w-3.5" />
-                      {filter.label}
-                      {filter.id !== 'all' && (
-                        <span className={cn(
-                          "text-[10px] min-w-[18px] h-[18px] flex items-center justify-center rounded-full",
-                          isActive
-                            ? "bg-white/20"
-                            : "bg-slate-700 text-slate-400"
-                        )}>
-                          {count}
-                        </span>
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
+            <div className="flex gap-1 mt-2 overflow-x-auto pb-0.5 -mx-1 px-1">
+              {filterOptions.map((filter) => {
+                const isActive = activeFilter === filter.id;
+                const count = filterCounts[filter.id] || 0;
+                return (
+                  <button
+                    key={filter.id}
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-medium whitespace-nowrap transition-colors",
+                      isActive
+                        ? "bg-[#3FB923]/15 text-green-400"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                    )}
+                  >
+                    {filter.label}
+                    {filter.id !== 'all' && (
+                      <span className="ml-1 text-[10px] text-muted-foreground/60">{count}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -1259,9 +1227,16 @@ export default function HoldingsTab({
           open={!!tradeDialog}
           onOpenChange={(open) => {
             if (!open) {
-              onRefreshEtoro();
+              if (!sellSucceededRef.current) {
+                onRefreshEtoro();
+              }
+              sellSucceededRef.current = false;
               setTradeDialog(null);
             }
+          }}
+          onSellSuccess={(details) => {
+            sellSucceededRef.current = true;
+            onSellSuccess?.(details);
           }}
           {...tradeDialog}
         />

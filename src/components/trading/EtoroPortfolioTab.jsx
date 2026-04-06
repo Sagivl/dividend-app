@@ -119,6 +119,7 @@ export default function EtoroPortfolioTab({ stocksMap = {} }) {
 
     const resolveSymbols = async () => {
       const cache = { ...resolvedSymbols };
+      let changed = false;
       for (const id of uniqueIds) {
         if (cancelled) break;
         try {
@@ -128,11 +129,23 @@ export default function EtoroPortfolioTab({ stocksMap = {} }) {
             const item = data.items?.[0];
             if (item) {
               cache[id] = item.internalSymbolFull || item.symbolFull || `ID:${id}`;
+              changed = true;
+            } else if (!cache[id]) {
+              cache[id] = `ID:${id}`;
+              changed = true;
             }
+          } else if (!cache[id]) {
+            cache[id] = `ID:${id}`;
+            changed = true;
           }
-        } catch { /* ignore */ }
+        } catch {
+          if (!cache[id]) {
+            cache[id] = `ID:${id}`;
+            changed = true;
+          }
+        }
       }
-      if (!cancelled) {
+      if (!cancelled && changed) {
         setResolvedSymbols(cache);
         setInstrumentCache(cache);
       }

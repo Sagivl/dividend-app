@@ -1,92 +1,82 @@
-import { User } from './User';
+import { getSupabaseBrowserClient, getSessionUserId } from '@/lib/supabaseClient';
 
-const STORAGE_KEY = 'dividend_app_watchlist';
+const supabase = getSupabaseBrowserClient();
 
-const getStoredWatchlist = () => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveWatchlist = (items) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-};
+const getUserId = getSessionUserId;
 
 export const Watchlist = {
   async list() {
-    const items = getStoredWatchlist();
-    const user = await User.me();
-    return items.filter(item => item.created_by === user.email);
+    const userId = await getUserId();
+    const { data, error } = await supabase
+      .from('watchlist')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   },
 
   async add(ticker) {
     if (!ticker) return null;
-    
+
     const normalizedTicker = ticker.toUpperCase().trim();
-    const items = getStoredWatchlist();
-    const user = await User.me();
-    
-    const exists = items.some(
-      item => item.ticker === normalizedTicker && item.created_by === user.email
-    );
-    
-    if (exists) {
-      return items.find(
-        item => item.ticker === normalizedTicker && item.created_by === user.email
-      );
-    }
-    
-    const newItem = {
-      id: `watchlist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ticker: normalizedTicker,
-      created_at: new Date().toISOString(),
-      created_by: user.email
-    };
-    
-    items.unshift(newItem);
-    saveWatchlist(items);
-    return newItem;
+    const userId = await getUserId();
+
+    const { data: existing } = await supabase
+      .from('watchlist')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('ticker', normalizedTicker)
+      .single();
+
+    if (existing) return existing;
+
+    const { data, error } = await supabase
+      .from('watchlist')
+      .insert({ user_id: userId, ticker: normalizedTicker })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   async remove(ticker) {
     if (!ticker) return false;
-    
+
     const normalizedTicker = ticker.toUpperCase().trim();
-    const items = getStoredWatchlist();
-    const user = await User.me();
-    
-    const filtered = items.filter(
-      item => !(item.ticker === normalizedTicker && item.created_by === user.email)
-    );
-    
-    if (filtered.length !== items.length) {
-      saveWatchlist(filtered);
-      return true;
-    }
-    
-    return false;
+    const userId = await getUserId();
+
+    const { error, count } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('user_id', userId)
+      .eq('ticker', normalizedTicker);
+
+    if (error) throw error;
+    return true;
   },
 
   async isInWatchlist(ticker) {
     if (!ticker) return false;
-    
+
     const normalizedTicker = ticker.toUpperCase().trim();
-    const items = getStoredWatchlist();
-    const user = await User.me();
-    
-    return items.some(
-      item => item.ticker === normalizedTicker && item.created_by === user.email
-    );
+    const userId = await getUserId();
+
+    const { data, error } = await supabase
+      .from('watchlist')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('ticker', normalizedTicker)
+      .single();
+
+    return !!data && !error;
   },
 
   async toggle(ticker) {
     const isIn = await this.isInWatchlist(ticker);
-    
+
     if (isIn) {
       await this.remove(ticker);
       return { added: false, ticker: ticker.toUpperCase().trim() };
@@ -97,11 +87,13 @@ export const Watchlist = {
   },
 
   async clear() {
-    const items = getStoredWatchlist();
-    const user = await User.me();
-    
-    const filtered = items.filter(item => item.created_by !== user.email);
-    saveWatchlist(filtered);
+    const userId = await getUserId();
+    const { error } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) throw error;
     return true;
   },
 

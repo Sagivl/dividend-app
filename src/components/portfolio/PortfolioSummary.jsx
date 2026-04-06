@@ -78,31 +78,24 @@ export default function PortfolioSummary({ totals, portfolioYield, positionCount
 
   return (
     <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-      <div className={`grid gap-2 sm:gap-4 ${
-        metrics.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
+      <div className={`grid gap-3 sm:gap-4 ${
+        metrics.length <= 3 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
       }`}>
         {metrics.map((metric) => (
           <Card
             key={metric.label}
             className={cn(
-              "bg-card/50 transition-all",
-              onFilterChange && metric.filterTarget && "cursor-pointer hover:bg-card/70 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
+              "bg-card/40 border-slate-700/40 transition-all",
+              onFilterChange && metric.filterTarget && "cursor-pointer hover:bg-card/60 hover:border-slate-600/50 active:scale-[0.99]"
             )}
             onClick={() => handleCardClick(metric.filterTarget)}
           >
-            <CardContent className="p-3 sm:pt-6 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-0.5 sm:mb-1 truncate">{metric.label}</p>
-                  <p className={`text-base sm:text-2xl font-bold truncate ${metric.highlight ? 'text-green-500' : ''}`}>
-                    {metric.value}
-                  </p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 truncate">{metric.description}</p>
-                </div>
-                <div className="hidden sm:block p-2 rounded-lg bg-primary/10 ml-2 shrink-0">
-                  <metric.icon className="h-5 w-5 text-primary" />
-                </div>
-              </div>
+            <CardContent className="p-4 sm:p-5">
+              <p className="text-xs sm:text-sm text-muted-foreground/80 mb-1 truncate">{metric.label}</p>
+              <p className={`text-lg sm:text-2xl font-semibold truncate ${metric.highlight ? 'text-green-500' : ''}`}>
+                {metric.value}
+              </p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground/60 mt-1 truncate">{metric.description}</p>
             </CardContent>
           </Card>
         ))}
@@ -111,26 +104,26 @@ export default function PortfolioSummary({ totals, portfolioYield, positionCount
       {hasCostData && (
         <Card
           className={cn(
-            `bg-card/50 border-l-4 ${isPnlPositive ? 'border-l-green-500' : 'border-l-red-500'}`,
-            onFilterChange && "cursor-pointer hover:bg-card/70 hover:shadow-md active:scale-[0.995] transition-all"
+            `bg-card/40 border-slate-700/40 border-l-2 ${isPnlPositive ? 'border-l-green-500' : 'border-l-red-500'}`,
+            onFilterChange && "cursor-pointer hover:bg-card/60 hover:border-slate-600/50 active:scale-[0.995] transition-all"
           )}
           onClick={() => handleCardClick(isPnlPositive ? 'gainers' : 'losers')}
         >
-          <CardContent className="p-3 sm:p-4">
+          <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Unrealized P/L</p>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <p className={`text-sm sm:text-xl font-bold ${isPnlPositive ? 'text-green-500' : 'text-red-500'}`}>
+                <p className="text-xs sm:text-sm text-muted-foreground/80 mb-1">Unrealized P/L</p>
+                <div className="flex items-center gap-2">
+                  <p className={`text-lg sm:text-xl font-semibold ${isPnlPositive ? 'text-green-500' : 'text-red-500'}`}>
                     {isPnlPositive ? '+' : ''}{formatCompactCurrency(totalPnL)}
                   </p>
-                  <span className={`text-xs sm:text-sm font-medium px-1.5 py-0.5 rounded ${
+                  <span className={`text-xs sm:text-sm font-medium px-2 py-0.5 rounded ${
                     isPnlPositive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
                   }`}>
                     {isPnlPositive ? '+' : ''}{pnlPercent.toFixed(1)}%
                   </span>
                 </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                <p className="text-[11px] sm:text-xs text-muted-foreground/60 mt-1">
                   Cost basis: {formatCompactCurrency(totalCost)}
                 </p>
               </div>

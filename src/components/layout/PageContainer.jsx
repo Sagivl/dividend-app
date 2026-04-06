@@ -24,7 +24,7 @@ export default function PageContainer({
   return (
     <div 
       className={cn(
-        "min-h-[calc(100vh-4rem)] bg-slate-900 text-slate-200",
+        "flex-1 bg-slate-900 text-slate-200",
         bottomPadding && "pb-20 sm:pb-6",
         className
       )}

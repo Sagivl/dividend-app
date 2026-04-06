@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
-import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2, Wallet, Settings } from "lucide-react";
+import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, BarChart2, Wallet, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,74 +14,50 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { User } from "@/entities/User";
+
 
 export default function Layout({ children, currentPageName }) {
   const router = useRouter();
   const [navItems, setNavItems] = useState([]);
 
   useEffect(() => {
-    const updateUserNav = async () => {
-      const baseNavItems = [
-        {
-          name: "Dashboard",
-          displayName: "Search",
-          path: createPageUrl("Dashboard"),
-          icon: Search,
-          description: "Analyze stocks"
-        },
-        {
-          name: "SuggestedStocks",
-          displayName: "Watchlist",
-          path: createPageUrl("SuggestedStocks"),
-          icon: Star,
-          description: "View your watchlist"
-        },
-        {
-          name: "Portfolio",
-          displayName: "Portfolio",
-          path: createPageUrl("Portfolio"),
-          icon: Wallet,
-          description: "Track your holdings"
-        },
-        {
-            name: "CompareStocks",
-            displayName: "Compare",
-            path: createPageUrl("CompareStocks"),
-            icon: BarChart2,
-            description: "Compare dividend stocks"
-        },
-        {
-            name: "Settings",
-            displayName: "Settings",
-            path: createPageUrl("Settings"),
-            icon: Settings,
-            description: "App settings & eToro connection"
-        }
-      ];
-
-      try {
-        const currentUser = await User.me();
-        if (currentUser && currentUser.role === 'admin') {
-          setNavItems([
-            ...baseNavItems,
-            {
-              name: "EtoroLabs",
-              displayName: "eToro Labs",
-              path: createPageUrl("EtoroLabs"),
-              icon: FlaskConical,
-              description: "Explore eToro data & tools"
-            }
-          ]);
-        } else {
-          setNavItems(baseNavItems);
-        }
-      } catch (error) {
-        setNavItems(baseNavItems);
+    setNavItems([
+      {
+        name: "Dashboard",
+        displayName: "Search",
+        path: createPageUrl("Dashboard"),
+        icon: Search,
+        description: "Analyze stocks"
+      },
+      {
+        name: "SuggestedStocks",
+        displayName: "Watchlist",
+        path: createPageUrl("SuggestedStocks"),
+        icon: Star,
+        description: "View your watchlist"
+      },
+      {
+        name: "Portfolio",
+        displayName: "Portfolio",
+        path: createPageUrl("Portfolio"),
+        icon: Wallet,
+        description: "Track your holdings"
+      },
+      {
+          name: "CompareStocks",
+          displayName: "Compare",
+          path: createPageUrl("CompareStocks"),
+          icon: BarChart2,
+          description: "Compare dividend stocks"
+      },
+      {
+          name: "Settings",
+          displayName: "Settings",
+          path: createPageUrl("Settings"),
+          icon: Settings,
+          description: "App settings & eToro connection"
       }
-    };
-
-    updateUserNav();
+    ]);
   }, [currentPageName]);
 
   return (
@@ -178,7 +154,7 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </header>
 
-      <main className="flex-grow bg-background">
+      <main className="flex-1 flex flex-col bg-background">
         {children}
       </main>
 
