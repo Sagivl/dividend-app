@@ -11,7 +11,7 @@ import DividendCalendar from "../components/portfolio/DividendCalendar";
 import AddPositionDialog from "../components/portfolio/AddPositionDialog";
 import DemoModeBanner from "../components/trading/DemoModeBanner";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
-import { cancelOpenOrder } from "@/functions/etoroTradingApi";
+import { cancelOpenOrder, getTradingEnvironment } from "@/functions/etoroTradingApi";
 import { UserSettings } from "@/entities/UserSettings";
 import { etoroFetch } from "@/functions/etoroFetch";
 import { toast } from "react-hot-toast";
@@ -130,12 +130,23 @@ export default function PortfolioView() {
 
   useEffect(() => {
     const init = async () => {
-      const connected = await UserSettings.isEtoroConnected();
-      setEtoroConnected(connected);
-      setEtoroConnectedLoading(false);
-      if (!connected) {
-        setEtoroLoading(false);
+      const localConnected = await UserSettings.isEtoroConnected();
+      if (localConnected) {
+        setEtoroConnected(true);
+        setEtoroConnectedLoading(false);
+        return;
       }
+      try {
+        const env = await getTradingEnvironment();
+        if (env?.hasApiKey && env?.hasUserKey) {
+          setEtoroConnected(true);
+          setEtoroConnectedLoading(false);
+          return;
+        }
+      } catch { /* server check failed, fall through */ }
+      setEtoroConnected(false);
+      setEtoroConnectedLoading(false);
+      setEtoroLoading(false);
     };
     init();
     loadData();
