@@ -84,7 +84,9 @@ export default function SettingsView() {
         const errData = await res.json().catch(() => ({}));
         let message = errData.error || `Connection failed (${res.status}).`;
         if (res.status === 401) {
-          message = 'Authentication failed. Make sure your Public API Key and User Key are correct, and that they belong to the same eToro account.';
+          message = 'Authentication failed. Make sure your Public API Key and User Key are correct and belong to the same eToro account.';
+        } else if (res.status === 422) {
+          message = 'Invalid key. The User Key is different from the Public API Key — you need to generate it by clicking "Create New Key" in eToro Settings → Trading → API Key Management.';
         }
         setTestResult({ success: false, message });
         return false;
@@ -197,7 +199,7 @@ export default function SettingsView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="etoro-api-key" className="text-sm font-medium">
                     Public API Key
                   </Label>
@@ -221,9 +223,12 @@ export default function SettingsView() {
                       {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Found at the top of the API Key Management section. Identifies your app.
+                  </p>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="etoro-key" className="text-sm font-medium">
                     User Key
                   </Label>
@@ -250,6 +255,9 @@ export default function SettingsView() {
                       {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Generated via "Create New Key" button. This is a separate key from the Public API Key.
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -320,18 +328,22 @@ export default function SettingsView() {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex gap-3">
               <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">1</span>
-              <p>Go to <a href="https://www.etoro.com/settings/trading" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">etoro.com/settings/trading</a> → API Key Management.</p>
+              <p>Go to <a href="https://www.etoro.com/settings/trading" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">etoro.com/settings/trading</a> → scroll to API Key Management.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">2</span>
-              <p>Copy your <strong className="text-foreground">Public API Key</strong> and create a <strong className="text-foreground">User Key</strong> (choose environment &amp; permissions).</p>
+              <p>Copy the <strong className="text-foreground">Public API Key</strong> shown at the top of the section.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">3</span>
-              <p>Paste both keys above and click Connect. We'll verify they work.</p>
+              <p>Click <strong className="text-foreground">"Create New Key"</strong> to generate a <strong className="text-foreground">User Key</strong>. Choose your environment (Demo/Real) and permissions (Read/Write), then copy the generated key.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">4</span>
+              <p>Paste both keys above and click Connect. We'll verify they work.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">5</span>
               <p>Your personal eToro portfolio will appear in the Portfolio page, filtered to dividend-paying stocks and ETFs.</p>
             </div>
             <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border text-xs">
