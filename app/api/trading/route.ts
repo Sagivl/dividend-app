@@ -240,6 +240,18 @@ export async function POST(request: NextRequest) {
         method = 'DELETE';
         break;
       }
+      case 'cancel-limit-order': {
+        const orderId = body?.orderId;
+        if (!orderId) {
+          return NextResponse.json(
+            { error: 'orderId is required' },
+            { status: 400 }
+          );
+        }
+        etoroPath = `${tradingBasePath()}/limit-orders/${orderId}`;
+        method = 'DELETE';
+        break;
+      }
       default:
         return NextResponse.json({ error: 'Action not supported for POST' }, { status: 400 });
     }

@@ -11,7 +11,7 @@ import DividendCalendar from "../components/portfolio/DividendCalendar";
 import AddPositionDialog from "../components/portfolio/AddPositionDialog";
 import DemoModeBanner from "../components/trading/DemoModeBanner";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
-import { cancelOpenOrder, getTradingEnvironment } from "@/functions/etoroTradingApi";
+import { cancelOpenOrder, cancelLimitOrder, getTradingEnvironment } from "@/functions/etoroTradingApi";
 import { UserSettings } from "@/entities/UserSettings";
 import { etoroFetch } from "@/functions/etoroFetch";
 import { toast } from "react-hot-toast";
@@ -447,9 +447,13 @@ export default function PortfolioView() {
     }
   };
 
-  const handleCancelOrder = async (orderId) => {
+  const handleCancelOrder = async (orderId, isLimitOrder = false) => {
     try {
-      await cancelOpenOrder(orderId);
+      if (isLimitOrder) {
+        await cancelLimitOrder(orderId);
+      } else {
+        await cancelOpenOrder(orderId);
+      }
       toast.success('Order cancelled');
       loadEtoroPortfolio(true);
     } catch (err) {

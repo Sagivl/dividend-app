@@ -1102,14 +1102,14 @@ export default function HoldingsTab({
                             <div className="font-semibold text-base">{symbol}</div>
                             <Badge variant="outline" className="text-amber-400 border-amber-400/30 text-xs mt-0.5">
                               <Clock className="h-3 w-3 mr-1" />
-                              Pending
+                              {order.isLimitOrder ? 'Limit' : 'Pending'}
                             </Badge>
                           </div>
                         </div>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => onCancelOrder(order.orderId)}
+                          onClick={() => onCancelOrder(order.orderId, !!order.isLimitOrder)}
                           className="gap-1 text-red-400 border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
                         >
                           <XCircle className="h-3.5 w-3.5" />
@@ -1131,12 +1131,19 @@ export default function HoldingsTab({
                             {order.isBuy ? 'Buy' : 'Sell'}
                           </div>
                         </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">Created</div>
-                          <div className="font-medium text-sm">
-                            {new Date(order.openDateTime).toLocaleDateString()}
+                        {order.isLimitOrder && order.rate ? (
+                          <div>
+                            <div className="text-xs text-muted-foreground">Target Rate</div>
+                            <div className="font-medium text-sm">{formatNumber(order.rate, 2)}</div>
                           </div>
-                        </div>
+                        ) : (
+                          <div>
+                            <div className="text-xs text-muted-foreground">Created</div>
+                            <div className="font-medium text-sm">
+                              {new Date(order.openDateTime).toLocaleDateString()}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -1189,19 +1196,21 @@ export default function HoldingsTab({
                           {formatNumber(order.amountInUnits, 4)}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
-                          {new Date(order.openDateTime).toLocaleDateString()}
+                          {order.isLimitOrder && order.rate
+                            ? `@ ${formatNumber(order.rate, 2)}`
+                            : new Date(order.openDateTime).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
                           <Badge variant="outline" className="text-amber-400 border-amber-400/30 text-xs">
                             <Clock className="h-3 w-3 mr-1" />
-                            Pending
+                            {order.isLimitOrder ? 'Limit' : 'Pending'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => onCancelOrder(order.orderId)}
+                            onClick={() => onCancelOrder(order.orderId, !!order.isLimitOrder)}
                             className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
                           >
                             <XCircle className="h-3.5 w-3.5" />

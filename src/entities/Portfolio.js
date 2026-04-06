@@ -188,8 +188,12 @@ export const Portfolio = {
 
       const rawData = await getEtoroPortfolio();
 
-      // PnL response nests everything under clientPortfolio
       const pnlData = rawData?.clientPortfolio || rawData;
+
+      console.log('[Portfolio] PnL keys:', Object.keys(pnlData || {}));
+      console.log('[Portfolio] positions:', (pnlData?.positions || []).length,
+        '| ordersForOpen:', (pnlData?.ordersForOpen || []).length,
+        '| orders:', (pnlData?.orders || []).length);
 
       const positions = (pnlData?.positions || []).map(pos => ({
         id: `etoro_${pos.positionID}`,
@@ -208,7 +212,7 @@ export const Portfolio = {
         source: 'etoro',
       }));
 
-      const orders = (pnlData?.ordersForOpen || []).map(order => ({
+      const marketOrders = (pnlData?.ordersForOpen || []).map(order => ({
         orderId: order.orderID || order.orderId,
         instrumentId: order.instrumentID || order.instrumentId,
         amount: order.amount || 0,
@@ -222,7 +226,7 @@ export const Portfolio = {
         statusId: order.statusId,
       }));
 
-      const pendingLimitOrders = (pnlData?.orders || []).map(order => ({
+      const limitOrders = (pnlData?.orders || []).map(order => ({
         orderId: order.orderID || order.orderId,
         instrumentId: order.instrumentID || order.instrumentId,
         amount: order.amount || 0,
@@ -234,10 +238,13 @@ export const Portfolio = {
         isLimitOrder: true,
       }));
 
+      const allPendingOrders = [...marketOrders, ...limitOrders];
+      console.log('[Portfolio] Total pending orders:', allPendingOrders.length);
+
       const result = {
         positions,
-        orders,
-        pendingOrders: pendingLimitOrders,
+        orders: allPendingOrders,
+        pendingOrders: limitOrders,
         credit: pnlData?.credit ?? null,
         mirrors: pnlData?.mirrors || [],
         raw: rawData,

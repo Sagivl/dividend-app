@@ -192,3 +192,16 @@ export async function cancelCloseOrder(orderId) {
   recordTrade();
   return result;
 }
+
+/**
+ * Cancel a pending limit order
+ */
+export async function cancelLimitOrder(orderId) {
+  checkRateLimit();
+  const result = await tradingFetch('cancel-limit-order', {
+    method: 'POST',
+    body: { orderId: String(orderId) },
+  });
+  recordTrade();
+  return result;
+}
