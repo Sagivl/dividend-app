@@ -1088,10 +1088,10 @@ export default function HoldingsTab({
             {/* Mobile view */}
             <div className="space-y-3 md:hidden">
               {pendingOrders.map((order) => {
-                const symbol = getSymbolForInstrumentId(order.instrumentID);
-                const stock = instrumentMap[order.instrumentID];
+                const symbol = getSymbolForInstrumentId(order.instrumentId);
+                const stock = instrumentMap[order.instrumentId];
                 return (
-                  <Card key={order.orderID} className="bg-amber-500/5 border-amber-500/20">
+                  <Card key={order.orderId} className="bg-amber-500/5 border-amber-500/20">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -1109,7 +1109,7 @@ export default function HoldingsTab({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => onCancelOrder(order.orderID)}
+                          onClick={() => onCancelOrder(order.orderId)}
                           className="gap-1 text-red-400 border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
                         >
                           <XCircle className="h-3.5 w-3.5" />
@@ -1160,10 +1160,10 @@ export default function HoldingsTab({
                 </TableHeader>
                 <TableBody>
                   {pendingOrders.map((order) => {
-                    const symbol = getSymbolForInstrumentId(order.instrumentID);
-                    const stock = instrumentMap[order.instrumentID];
+                    const symbol = getSymbolForInstrumentId(order.instrumentId);
+                    const stock = instrumentMap[order.instrumentId];
                     return (
-                      <TableRow key={order.orderID}>
+                      <TableRow key={order.orderId}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {stock?.logo50x50 && (
@@ -1201,7 +1201,7 @@ export default function HoldingsTab({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => onCancelOrder(order.orderID)}
+                            onClick={() => onCancelOrder(order.orderId)}
                             className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
                           >
                             <XCircle className="h-3.5 w-3.5" />

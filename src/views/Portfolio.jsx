@@ -161,7 +161,7 @@ export default function PortfolioView() {
   useEffect(() => {
     const allIds = [
       ...(etoroPortfolio?.positions || []).map(p => p.instrumentId),
-      ...(etoroPortfolio?.orders || []).map(o => o.instrumentID),
+      ...(etoroPortfolio?.orders || []).map(o => o.instrumentId),
     ];
     if (allIds.length === 0) return;
 
