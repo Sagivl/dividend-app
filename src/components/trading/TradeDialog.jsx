@@ -159,7 +159,7 @@ function TradeForm({
         }
       } else {
         const unitsToDeduct = partialClose ? Number(closeUnits) : null;
-        response = await closePosition(positionId, unitsToDeduct);
+        response = await closePosition(positionId, unitsToDeduct, instrumentId);
       }
 
       setResult({ success: true, data: response });

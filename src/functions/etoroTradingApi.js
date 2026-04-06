@@ -151,12 +151,14 @@ export async function openPositionByUnits(instrumentId, units, options = {}) {
  * 
  * @param {string|number} positionId - The position ID to close
  * @param {number|null} unitsToDeduct - Units to sell (null = close entire position)
+ * @param {string|number} instrumentId - The instrument ID (required by eToro API)
  */
-export async function closePosition(positionId, unitsToDeduct = null) {
+export async function closePosition(positionId, unitsToDeduct = null, instrumentId) {
   checkRateLimit();
 
   const body = {
     positionId: String(positionId),
+    InstrumentId: Number(instrumentId),
     UnitsToDeduct: unitsToDeduct,
   };
 
