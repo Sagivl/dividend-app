@@ -40,17 +40,19 @@ export async function GET(
     };
 
     // Add API keys if available (for public API)
+    // Per-user key from client takes priority over env var
+    const perUserKey = request.headers.get('x-etoro-user-key');
     if (!isSapi) {
       if (ETORO_API_KEY) {
         headers['x-api-key'] = ETORO_API_KEY;
       }
-      if (ETORO_USER_KEY) {
-        headers['x-user-key'] = ETORO_USER_KEY;
+      const resolvedUserKey = perUserKey || ETORO_USER_KEY;
+      if (resolvedUserKey) {
+        headers['x-user-key'] = resolvedUserKey;
       }
     }
 
-    // Log request
-    console.log(`[eToro API Route] Request to ${endpoint} (${isSapi ? 'SAPI' : 'Public'}), API key present: ${!!ETORO_API_KEY}, User key present: ${!!ETORO_USER_KEY}`);
+    console.log(`[eToro API Route] Request to ${endpoint} (${isSapi ? 'SAPI' : 'Public'}), API key present: ${!!ETORO_API_KEY}, User key present: ${!!(perUserKey || ETORO_USER_KEY)}`);
 
     const response = await fetch(etoroUrl.toString(), {
       method: 'GET',
@@ -107,12 +109,14 @@ export async function POST(
       'Accept': 'application/json',
     };
 
+    const perUserKey = request.headers.get('x-etoro-user-key');
     if (!isSapi) {
       if (ETORO_API_KEY) {
         headers['x-api-key'] = ETORO_API_KEY;
       }
-      if (ETORO_USER_KEY) {
-        headers['x-user-key'] = ETORO_USER_KEY;
+      const resolvedUserKey = perUserKey || ETORO_USER_KEY;
+      if (resolvedUserKey) {
+        headers['x-user-key'] = resolvedUserKey;
       }
     }
 

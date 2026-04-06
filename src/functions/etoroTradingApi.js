@@ -7,6 +7,8 @@
  * Rate limits: 20 write requests/min, 60 read requests/min
  */
 
+import { UserSettings } from '@/entities/UserSettings';
+
 const TRADING_API = '/api/trading';
 
 let lastTradeTimestamps = [];
@@ -30,10 +32,13 @@ async function tradingFetch(action, options = {}) {
   const { method = 'GET', body } = options;
   const url = `${TRADING_API}?action=${action}`;
 
-  const fetchOptions = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  };
+  const userKey = await UserSettings.getEtoroUserKey();
+  const headers = { 'Content-Type': 'application/json' };
+  if (userKey) {
+    headers['x-etoro-user-key'] = userKey;
+  }
+
+  const fetchOptions = { method, headers };
 
   if (body && method !== 'GET') {
     fetchOptions.body = JSON.stringify(body);

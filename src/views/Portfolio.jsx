@@ -12,12 +12,15 @@ import AddPositionDialog from "../components/portfolio/AddPositionDialog";
 import DemoModeBanner from "../components/trading/DemoModeBanner";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
 import { cancelOpenOrder } from "@/functions/etoroTradingApi";
+import { UserSettings } from "@/entities/UserSettings";
 import { toast } from "react-hot-toast";
 import { PageContainer, PageHeader, LoadingState } from "@/components/layout";
+import { Link2, Settings, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 const INSTRUMENT_CACHE_KEY = 'etoro_instrument_symbols';
 const ASSET_CLASS_CACHE_KEY = 'etoro_instrument_asset_classes';
-const INSTRUMENT_META_CACHE_KEY = 'etoro_instrument_meta';
+const INSTRUMENT_META_CACHE_KEY = 'etoro_instrument_meta_v2';
 
 function getInstrumentCache() {
   try {
@@ -57,6 +60,8 @@ export default function PortfolioView() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("portfolio");
 
+  const [etoroConnected, setEtoroConnected] = useState(false);
+  const [etoroConnectedLoading, setEtoroConnectedLoading] = useState(true);
   const [etoroPortfolio, setEtoroPortfolio] = useState(null);
   const [etoroLoading, setEtoroLoading] = useState(true);
   const [etoroError, setEtoroError] = useState(null);
@@ -65,6 +70,7 @@ export default function PortfolioView() {
   const [instrumentAssetClasses, setInstrumentAssetClasses] = useState(getAssetClassCache);
   const [instrumentMeta, setInstrumentMeta] = useState(getInstrumentMetaCache);
   const [etoroLastSynced, setEtoroLastSynced] = useState(null);
+  const [showAllHoldings, setShowAllHoldings] = useState(false);
 
   const instrumentMap = useMemo(() => {
     const map = {};
@@ -122,9 +128,23 @@ export default function PortfolioView() {
   }, []);
 
   useEffect(() => {
+    const init = async () => {
+      const connected = await UserSettings.isEtoroConnected();
+      setEtoroConnected(connected);
+      setEtoroConnectedLoading(false);
+      if (!connected) {
+        setEtoroLoading(false);
+      }
+    };
+    init();
     loadData();
-    loadEtoroPortfolio();
-  }, [loadData, loadEtoroPortfolio]);
+  }, [loadData]);
+
+  useEffect(() => {
+    if (etoroConnected) {
+      loadEtoroPortfolio();
+    }
+  }, [etoroConnected, loadEtoroPortfolio]);
 
   useEffect(() => {
     const allIds = [
@@ -134,7 +154,9 @@ export default function PortfolioView() {
     if (allIds.length === 0) return;
 
     const unknownIds = allIds.filter(id =>
-      id && !instrumentMap[id] && (!resolvedSymbols[id] || !(id in instrumentAssetClasses))
+      id && !instrumentMap[id] && (
+        !resolvedSymbols[id] || !(id in instrumentAssetClasses) || !instrumentMeta[id]?.hasDividendData
+      )
     );
     if (unknownIds.length === 0) return;
 
@@ -155,9 +177,15 @@ export default function PortfolioView() {
             if (item) {
               cache[id] = item.internalSymbolFull || item.symbolFull || `ID:${id}`;
               assetClasses[id] = item.internalAssetClassName || 'Unknown';
+              const divRate = parseFloat(item['dividendRate-TTM']) || parseFloat(item['dividendRate-Annual']) || 0;
+              const currentPrice = parseFloat(item.currentRate) || 0;
+              const divYield = currentPrice > 0 ? (divRate / currentPrice) * 100 : 0;
               meta[id] = {
                 logo50x50: item.logo50x50 || null,
                 name: item.internalInstrumentDisplayName || null,
+                dividendYield: divYield,
+                dividendRate: divRate,
+                hasDividendData: true,
               };
             }
           }
@@ -233,9 +261,13 @@ export default function PortfolioView() {
       const invested = pos.amount || ((pos.cost_basis || 0) * shares);
       const pnl = pos.netProfit || (marketValue - invested);
       const pnlPercent = invested > 0 ? (pnl / invested) * 100 : 0;
-      const dividendYield = dbStock?.dividend_yield || 0;
-      const annualDividendPerShare = currentPrice * (dividendYield / 100);
+      const dividendYield = dbStock?.dividend_yield || meta?.dividendYield || 0;
+      const annualDivPerShareFromRate = meta?.dividendRate || 0;
+      const annualDividendPerShare = dbStock?.dividend_yield
+        ? currentPrice * (dbStock.dividend_yield / 100)
+        : annualDivPerShareFromRate;
       const annualIncome = shares * annualDividendPerShare;
+      const hasDividendData = !!(dbStock?.dividend_yield !== undefined || meta?.hasDividendData);
 
       return {
         ...pos,
@@ -251,6 +283,7 @@ export default function PortfolioView() {
         yieldOnCost: invested > 0 ? (annualIncome / invested) * 100 : null,
         pnl,
         pnlPercent,
+        hasDividendData,
       };
     });
 
@@ -290,13 +323,24 @@ export default function PortfolioView() {
   const allPositions = useMemo(() => {
     const combined = [...enrichedManualPositions, ...enrichedEtoroPositions];
 
-    const isCrypto = (pos) => {
+    const isNonEquity = (pos) => {
       const sector = (pos.stock?.sector || '').toLowerCase();
       const assetClass = (instrumentAssetClasses[pos.instrumentId] || '').toLowerCase();
-      return sector.includes('crypto') || assetClass.includes('crypto');
+      if (sector.includes('crypto') || assetClass.includes('crypto')) return true;
+      if (assetClass && !assetClass.includes('stock') && !assetClass.includes('etf') && assetClass !== 'unknown') return true;
+      return false;
     };
 
-    const filtered = combined.filter(pos => !isCrypto(pos));
+    let filtered = combined.filter(pos => !isNonEquity(pos));
+
+    if (!showAllHoldings) {
+      filtered = filtered.filter(pos => {
+        if ((pos.dividendYield || 0) > 0) return true;
+        // Keep positions where we haven't resolved dividend data yet
+        if (pos.source === 'etoro' && !pos.hasDividendData) return true;
+        return false;
+      });
+    }
 
     const tickerSources = {};
     filtered.forEach(pos => {
@@ -316,7 +360,7 @@ export default function PortfolioView() {
         : null;
       return { ...pos, hasDuplicate, linkedPositionId };
     });
-  }, [enrichedManualPositions, enrichedEtoroPositions, instrumentAssetClasses]);
+  }, [enrichedManualPositions, enrichedEtoroPositions, instrumentAssetClasses, showAllHoldings]);
 
   const unifiedTotals = useMemo(() => {
     return allPositions.reduce((acc, pos) => ({
@@ -424,6 +468,37 @@ export default function PortfolioView() {
       />
 
       <DemoModeBanner className="mb-4 sm:mb-6" />
+
+      {!etoroConnectedLoading && !etoroConnected && (
+        <div className="mb-4 sm:mb-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="flex items-start sm:items-center gap-3 flex-col sm:flex-row">
+            <div className="flex items-center gap-2 text-blue-400">
+              <Link2 className="h-5 w-5 shrink-0" />
+              <p className="text-sm font-medium">Connect your eToro account to see your personal portfolio.</p>
+            </div>
+            <Link
+              href="/Settings"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-xs font-medium transition-colors shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              Go to Settings
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-end mb-3">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showAllHoldings}
+            onChange={(e) => setShowAllHoldings(e.target.checked)}
+            className="rounded border-border"
+          />
+          Show all holdings (including non-dividend)
+        </label>
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4 sm:mb-6 bg-slate-800 border border-slate-700 rounded-lg">

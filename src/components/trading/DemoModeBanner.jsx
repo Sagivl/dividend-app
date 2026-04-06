@@ -4,17 +4,25 @@ import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTradingEnvironment } from '@/functions/etoroTradingApi';
+import { UserSettings } from '@/entities/UserSettings';
 
 export default function DemoModeBanner({ className }) {
   const [env, setEnv] = useState(null);
+  const [hasLocalKey, setHasLocalKey] = useState(false);
 
   useEffect(() => {
+    const init = async () => {
+      const connected = await UserSettings.isEtoroConnected();
+      setHasLocalKey(connected);
+    };
+    init();
     getTradingEnvironment()
       .then(setEnv)
       .catch(() => {});
   }, []);
 
-  if (!env || !env.hasApiKey || !env.hasUserKey) return null;
+  const hasKey = hasLocalKey || (env?.hasUserKey);
+  if (!env || !env.hasApiKey || !hasKey) return null;
 
   const isDemo = env.environment === 'demo';
 

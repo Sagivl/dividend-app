@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
-import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2, Wallet } from "lucide-react";
+import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, FlaskConical, BarChart2, Wallet, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,6 +50,13 @@ export default function Layout({ children, currentPageName }) {
             path: createPageUrl("CompareStocks"),
             icon: BarChart2,
             description: "Compare dividend stocks"
+        },
+        {
+            name: "Settings",
+            displayName: "Settings",
+            path: createPageUrl("Settings"),
+            icon: Settings,
+            description: "App settings & eToro connection"
         }
       ];
 
