@@ -6,7 +6,8 @@ const ETORO_USER_KEY = process.env.ETORO_USER_KEY;
 const ETORO_TRADING_ENV = process.env.ETORO_TRADING_ENV || 'demo';
 const ETORO_PUBLIC_API = 'https://public-api.etoro.com';
 
-function getHeaders(perUserKey?: string): Record<string, string> {
+function getHeaders(perApiKey?: string, perUserKey?: string): Record<string, string> {
+  const resolvedApiKey = perApiKey || ETORO_API_KEY;
   const resolvedUserKey = perUserKey || ETORO_USER_KEY;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -14,8 +15,8 @@ function getHeaders(perUserKey?: string): Record<string, string> {
     'Accept': 'application/json',
   };
 
-  if (ETORO_API_KEY) {
-    headers['x-api-key'] = ETORO_API_KEY;
+  if (resolvedApiKey) {
+    headers['x-api-key'] = resolvedApiKey;
   }
   if (resolvedUserKey) {
     headers['x-user-key'] = resolvedUserKey;
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
+    const perApiKey = request.headers.get('x-etoro-api-key') || undefined;
     const perUserKey = request.headers.get('x-etoro-user-key') || undefined;
 
     if (!action || !isAllowedAction(action)) {
@@ -72,16 +74,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const resolvedApiKey = perApiKey || ETORO_API_KEY;
+    const resolvedUserKey = perUserKey || ETORO_USER_KEY;
+
     if (action === 'env') {
       return NextResponse.json({
         environment: isDemo() ? 'demo' : 'real',
-        hasApiKey: !!ETORO_API_KEY,
-        hasUserKey: !!(perUserKey || ETORO_USER_KEY),
+        hasApiKey: !!resolvedApiKey,
+        hasUserKey: !!resolvedUserKey,
       });
     }
 
-    const resolvedUserKey = perUserKey || ETORO_USER_KEY;
-    if (!ETORO_API_KEY || !resolvedUserKey) {
+    if (!resolvedApiKey || !resolvedUserKey) {
       return NextResponse.json(
         { error: 'eToro API keys not configured. Please connect your eToro account in Settings.' },
         { status: 401 }
@@ -117,7 +121,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(etoroUrl, {
       method: 'GET',
-      headers: getHeaders(perUserKey),
+      headers: getHeaders(perApiKey, perUserKey),
     });
 
     if (!response.ok) {
@@ -144,6 +148,7 @@ export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
+    const perApiKey = request.headers.get('x-etoro-api-key') || undefined;
     const perUserKey = request.headers.get('x-etoro-user-key') || undefined;
 
     if (!action || !isAllowedAction(action)) {
@@ -153,8 +158,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const resolvedApiKey = perApiKey || ETORO_API_KEY;
     const resolvedUserKey = perUserKey || ETORO_USER_KEY;
-    if (!ETORO_API_KEY || !resolvedUserKey) {
+    if (!resolvedApiKey || !resolvedUserKey) {
       return NextResponse.json(
         { error: 'eToro API keys not configured. Please connect your eToro account in Settings.' },
         { status: 401 }
@@ -247,7 +253,7 @@ export async function POST(request: NextRequest) {
 
     const response = await fetch(etoroUrl, {
       method,
-      headers: getHeaders(perUserKey),
+      headers: getHeaders(perApiKey, perUserKey),
       body: method !== 'DELETE' ? JSON.stringify(orderBody) : undefined,
     });
 

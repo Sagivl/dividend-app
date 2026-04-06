@@ -28,6 +28,7 @@ import { cancelOpenOrder } from '@/functions/etoroTradingApi';
 import { cn } from '@/lib/utils';
 import { Portfolio } from '@/entities/Portfolio';
 import TradeDialog from './TradeDialog';
+import { etoroFetch } from '@/functions/etoroFetch';
 import { toast } from 'react-hot-toast';
 
 function formatCurrency(value) {
@@ -121,7 +122,7 @@ export default function EtoroPortfolioTab({ stocksMap = {} }) {
       for (const id of uniqueIds) {
         if (cancelled) break;
         try {
-          const res = await fetch(`/api/etoro/api/v1/market-data/search?instrumentId=${id}`);
+          const res = await etoroFetch(`/api/etoro/api/v1/market-data/search?instrumentId=${id}`);
           if (res.ok) {
             const data = await res.json();
             const item = data.items?.[0];

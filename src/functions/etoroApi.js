@@ -6,6 +6,8 @@
  * API Documentation: https://api-portal.etoro.com/
  */
 
+import { etoroFetch } from '@/functions/etoroFetch';
+
 const ETORO_PROXY = '/etoro-api';
 const ETORO_SAPI_PROXY = '/etoro-api/sapi';
 
@@ -21,7 +23,7 @@ export async function searchBySymbol(symbol) {
     const url = `${ETORO_PROXY}/api/v1/market-data/search?internalSymbolFull=${encodeURIComponent(symbol)}&pageSize=15`;
     console.log('[eToro] Searching for symbol:', symbol);
     
-    const response = await fetch(url);
+    const response = await etoroFetch(url);
     if (!response.ok) {
       throw new Error(`eToro API error: ${response.status}`);
     }
@@ -89,7 +91,7 @@ export async function getDetailedInstrumentInfo(instrumentId) {
     const url = `${ETORO_SAPI_PROXY}/instrumentsinfo/instruments/?instrumentId=${instrumentId}`;
     console.log('[eToro] Fetching detailed instrument info for:', instrumentId);
     
-    const response = await fetch(url);
+    const response = await etoroFetch(url);
     if (!response.ok) {
       console.warn(`[eToro] SAPI error: ${response.status} - falling back to basic data`);
       return null;
@@ -285,7 +287,7 @@ export async function getPriceHistory(instrumentId, interval = 'OneDay', count =
     const url = `${ETORO_PROXY}/api/v1/market-data/instruments/${instrumentId}/history/candles/desc/${interval}/${count}`;
     console.log('[eToro] Fetching price history for instrument:', instrumentId);
     
-    const response = await fetch(url);
+    const response = await etoroFetch(url);
     if (!response.ok) {
       throw new Error(`eToro API error: ${response.status}`);
     }
@@ -678,7 +680,7 @@ export async function fetchEtoroData(symbol) {
  */
 export async function isEtoroAvailable() {
   try {
-    const response = await fetch(`${ETORO_PROXY}/api/v1/market-data/search?internalSymbolFull=AAPL&pageSize=1&fields=instrumentId`);
+    const response = await etoroFetch(`${ETORO_PROXY}/api/v1/market-data/search?internalSymbolFull=AAPL&pageSize=1&fields=instrumentId`);
     return response.ok;
   } catch {
     return false;

@@ -66,6 +66,8 @@ const DEMO_INSTRUMENTS = [
   { instrumentId: 1060, internalInstrumentDisplayName: 'Deere & Company', internalSymbolFull: 'DE', internalAssetClassName: 'Stocks', currentRate: 398.70, logo50x50: 'https://etoro-cdn.etorostatic.com/market-avatars/1060/50x50.png', dailyPriceChange: 1.85, isOpen: true },
 ];
 
+import { etoroFetch } from '@/functions/etoroFetch';
+
 export async function searchInstruments(params) {
   const query = params.searchText || params.internalInstrumentDisplayName || params.internalSymbolFull || '';
   const pageSize = params.pageSize || 20;
@@ -82,8 +84,8 @@ export async function searchInstruments(params) {
     console.log('[searchInstruments] Searching for:', query);
     
     const [exactResponse, textResponse] = await Promise.all([
-      fetch(exactMatchUrl).catch(() => null),
-      fetch(textSearchUrl).catch(() => null)
+      etoroFetch(exactMatchUrl).catch(() => null),
+      etoroFetch(textSearchUrl).catch(() => null)
     ]);
 
     let allItems = [];
@@ -187,8 +189,7 @@ export async function searchInstruments(params) {
 
 export async function getInstrument(instrumentId) {
   try {
-    // Note: Do NOT use 'fields' parameter - it causes the API to only return instrumentId
-    const response = await fetch(`/etoro-api/api/v1/market-data/search?instrumentId=${instrumentId}`);
+    const response = await etoroFetch(`/etoro-api/api/v1/market-data/search?instrumentId=${instrumentId}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch instrument');
@@ -207,7 +208,7 @@ export async function getInstrument(instrumentId) {
 export async function getRates(instrumentIds) {
   try {
     const ids = Array.isArray(instrumentIds) ? instrumentIds.join(',') : instrumentIds;
-    const response = await fetch(`/etoro-api/api/v1/market-data/rates?instrumentIds=${ids}`);
+    const response = await etoroFetch(`/etoro-api/api/v1/market-data/rates?instrumentIds=${ids}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch rates');

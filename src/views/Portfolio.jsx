@@ -13,6 +13,7 @@ import DemoModeBanner from "../components/trading/DemoModeBanner";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
 import { cancelOpenOrder } from "@/functions/etoroTradingApi";
 import { UserSettings } from "@/entities/UserSettings";
+import { etoroFetch } from "@/functions/etoroFetch";
 import { toast } from "react-hot-toast";
 import { PageContainer, PageHeader, LoadingState } from "@/components/layout";
 import { Link2, Settings, ArrowRight } from "lucide-react";
@@ -170,7 +171,7 @@ export default function PortfolioView() {
       for (const id of uniqueIds) {
         if (cancelled) break;
         try {
-          const res = await fetch(`/api/etoro/api/v1/market-data/search?instrumentId=${id}`);
+          const res = await etoroFetch(`/api/etoro/api/v1/market-data/search?instrumentId=${id}`);
           if (res.ok) {
             const data = await res.json();
             const item = data.items?.[0];

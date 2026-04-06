@@ -12,14 +12,19 @@ export async function GET(request: NextRequest) {
 
   try {
     // Step 1: Search for instrument to get instrumentId
+    const perApiKey = request.headers.get('x-etoro-api-key');
+    const perUserKey = request.headers.get('x-etoro-user-key');
+    const resolvedApiKey = perApiKey || ETORO_API_KEY || '';
+    const resolvedUserKey = perUserKey || ETORO_USER_KEY || '';
+
     const searchUrl = `${ETORO_PUBLIC_API}/api/v1/market-data/search?internalSymbolFull=${encodeURIComponent(symbol)}&pageSize=1&fields=instrumentId,internalSymbolFull`;
     
     const searchResponse = await fetch(searchUrl, {
       headers: {
         'Content-Type': 'application/json',
         'x-request-id': randomUUID(),
-        'x-api-key': ETORO_API_KEY || '',
-        'x-user-key': ETORO_USER_KEY || '',
+        'x-api-key': resolvedApiKey,
+        'x-user-key': resolvedUserKey,
       },
     });
 

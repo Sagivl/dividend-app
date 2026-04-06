@@ -13,23 +13,30 @@ import { UserSettings } from '@/entities/UserSettings';
 import { toast } from 'react-hot-toast';
 
 export default function SettingsView() {
+  const [apiKey, setApiKey] = useState('');
   const [userKey, setUserKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState(null); // { success, message, environment }
   const [isLoading, setIsLoading] = useState(true);
+  const [maskedApiKey, setMaskedApiKey] = useState('');
   const [maskedKey, setMaskedKey] = useState('');
+
+  const maskKey = (key) => key.slice(0, 8) + '••••••••' + key.slice(-4);
 
   const loadSettings = useCallback(async () => {
     try {
       setIsLoading(true);
-      const key = await UserSettings.getEtoroUserKey();
-      if (key) {
+      const keys = await UserSettings.getEtoroKeys();
+      if (keys.apiKey && keys.userKey) {
         setIsConnected(true);
-        setMaskedKey(key.slice(0, 8) + '••••••••' + key.slice(-4));
+        setMaskedApiKey(maskKey(keys.apiKey));
+        setMaskedKey(maskKey(keys.userKey));
       } else {
         setIsConnected(false);
+        setMaskedApiKey('');
         setMaskedKey('');
       }
     } catch (err) {
@@ -43,14 +50,15 @@ export default function SettingsView() {
     loadSettings();
   }, [loadSettings]);
 
-  const testConnection = async (keyToTest) => {
+  const testConnection = async (apiKeyToTest, userKeyToTest) => {
     setIsTesting(true);
     setTestResult(null);
     try {
       const res = await fetch('/api/trading?action=portfolio', {
         headers: {
           'Content-Type': 'application/json',
-          'x-etoro-user-key': keyToTest,
+          'x-etoro-api-key': apiKeyToTest,
+          'x-etoro-user-key': userKeyToTest,
         },
       });
 
@@ -58,7 +66,12 @@ export default function SettingsView() {
         const data = await res.json();
         const positionCount = data?.clientPortfolio?.positions?.length || 0;
 
-        const envRes = await fetch('/api/trading?action=env');
+        const envRes = await fetch('/api/trading?action=env', {
+          headers: {
+            'x-etoro-api-key': apiKeyToTest,
+            'x-etoro-user-key': userKeyToTest,
+          },
+        });
         const envData = await envRes.ok ? await envRes.json() : {};
 
         setTestResult({
@@ -69,10 +82,11 @@ export default function SettingsView() {
         return true;
       } else {
         const errData = await res.json().catch(() => ({}));
-        setTestResult({
-          success: false,
-          message: errData.error || `Connection failed (${res.status}). Check your User Key.`,
-        });
+        let message = errData.error || `Connection failed (${res.status}).`;
+        if (res.status === 401) {
+          message = 'Authentication failed. Make sure your Public API Key and User Key are correct, and that they belong to the same eToro account.';
+        }
+        setTestResult({ success: false, message });
         return false;
       }
     } catch (err) {
@@ -87,27 +101,37 @@ export default function SettingsView() {
   };
 
   const handleConnect = async () => {
-    const trimmedKey = userKey.trim();
-    if (!trimmedKey) {
-      toast.error('Please enter your eToro User Key');
+    const trimmedApiKey = apiKey.trim();
+    const trimmedUserKey = userKey.trim();
+    if (!trimmedApiKey || !trimmedUserKey) {
+      toast.error('Please enter both your eToro Public API Key and User Key');
       return;
     }
 
-    const success = await testConnection(trimmedKey);
+    const success = await testConnection(trimmedApiKey, trimmedUserKey);
     if (success) {
-      await UserSettings.setEtoroUserKey(trimmedKey);
+      const { clearKeysCache } = await import('@/functions/etoroFetch');
+      clearKeysCache();
+      await UserSettings.setEtoroKeys(trimmedApiKey, trimmedUserKey);
       setIsConnected(true);
-      setMaskedKey(trimmedKey.slice(0, 8) + '••••••••' + trimmedKey.slice(-4));
+      setMaskedApiKey(maskKey(trimmedApiKey));
+      setMaskedKey(maskKey(trimmedUserKey));
+      setApiKey('');
       setUserKey('');
+      setShowApiKey(false);
       setShowKey(false);
       toast.success('eToro account connected');
     }
   };
 
   const handleDisconnect = async () => {
-    await UserSettings.clearEtoroUserKey();
+    const { clearKeysCache } = await import('@/functions/etoroFetch');
+    clearKeysCache();
+    await UserSettings.clearEtoroKeys();
     setIsConnected(false);
+    setMaskedApiKey('');
     setMaskedKey('');
+    setApiKey('');
     setUserKey('');
     setTestResult(null);
     toast.success('eToro account disconnected');
@@ -151,7 +175,9 @@ export default function SettingsView() {
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                   <Shield className="h-5 w-5 text-green-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">User Key</p>
+                    <p className="text-sm font-medium text-foreground">Public API Key</p>
+                    <p className="text-xs text-muted-foreground font-mono truncate">{maskedApiKey}</p>
+                    <p className="text-sm font-medium text-foreground mt-2">User Key</p>
                     <p className="text-xs text-muted-foreground font-mono truncate">{maskedKey}</p>
                   </div>
                   <Button
@@ -166,14 +192,40 @@ export default function SettingsView() {
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  To use a different key, disconnect first, then enter the new one.
+                  To use different keys, disconnect first, then enter the new ones.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
+                  <Label htmlFor="etoro-api-key" className="text-sm font-medium">
+                    Public API Key
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="etoro-api-key"
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
+                        setTestResult(null);
+                      }}
+                      placeholder="Paste your Public API Key here"
+                      className="pr-10 font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="etoro-key" className="text-sm font-medium">
-                    eToro User Key
+                    User Key
                   </Label>
                   <div className="relative">
                     <Input
@@ -184,10 +236,10 @@ export default function SettingsView() {
                         setUserKey(e.target.value);
                         setTestResult(null);
                       }}
-                      placeholder="Paste your eToro User Key here"
+                      placeholder="Paste your User Key here"
                       className="pr-10 font-mono text-sm"
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && userKey.trim()) handleConnect();
+                        if (e.key === 'Enter' && apiKey.trim() && userKey.trim()) handleConnect();
                       }}
                     />
                     <button
@@ -203,7 +255,7 @@ export default function SettingsView() {
                 <div className="flex items-center gap-3">
                   <Button
                     onClick={handleConnect}
-                    disabled={!userKey.trim() || isTesting}
+                    disabled={!apiKey.trim() || !userKey.trim() || isTesting}
                     className="bg-[#3FB923] hover:bg-green-600 text-white"
                   >
                     {isTesting ? (
@@ -222,7 +274,7 @@ export default function SettingsView() {
                   className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" />
-                  Get your User Key from eToro Settings → Trading
+                  Get your keys from eToro Settings → Trading → API Key Management
                 </a>
               </div>
             )}
@@ -268,18 +320,22 @@ export default function SettingsView() {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex gap-3">
               <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">1</span>
-              <p>Go to <a href="https://www.etoro.com/settings/trading" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">etoro.com/settings/trading</a> and copy your User Key.</p>
+              <p>Go to <a href="https://www.etoro.com/settings/trading" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">etoro.com/settings/trading</a> → API Key Management.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">2</span>
-              <p>Paste it above and click Connect. We'll verify it works.</p>
+              <p>Copy your <strong className="text-foreground">Public API Key</strong> and create a <strong className="text-foreground">User Key</strong> (choose environment &amp; permissions).</p>
             </div>
             <div className="flex gap-3">
               <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">3</span>
+              <p>Paste both keys above and click Connect. We'll verify they work.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">4</span>
               <p>Your personal eToro portfolio will appear in the Portfolio page, filtered to dividend-paying stocks and ETFs.</p>
             </div>
             <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border text-xs">
-              <p><strong className="text-foreground">Security:</strong> Your key is stored locally in your browser and only sent to our server (never directly to eToro from your browser). You can revoke it anytime from eToro settings.</p>
+              <p><strong className="text-foreground">Security:</strong> Your keys are stored locally in your browser and only sent to our server to proxy requests to eToro. You can revoke them anytime from eToro settings.</p>
             </div>
           </CardContent>
         </Card>

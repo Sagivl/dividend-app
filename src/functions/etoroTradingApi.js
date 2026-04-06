@@ -32,10 +32,13 @@ async function tradingFetch(action, options = {}) {
   const { method = 'GET', body } = options;
   const url = `${TRADING_API}?action=${action}`;
 
-  const userKey = await UserSettings.getEtoroUserKey();
+  const keys = await UserSettings.getEtoroKeys();
   const headers = { 'Content-Type': 'application/json' };
-  if (userKey) {
-    headers['x-etoro-user-key'] = userKey;
+  if (keys.apiKey) {
+    headers['x-etoro-api-key'] = keys.apiKey;
+  }
+  if (keys.userKey) {
+    headers['x-etoro-user-key'] = keys.userKey;
   }
 
   const fetchOptions = { method, headers };

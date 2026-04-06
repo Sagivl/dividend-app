@@ -53,9 +53,32 @@ export const UserSettings = {
     return settings?.etoroUserKey || null;
   },
 
+  async getEtoroApiKey() {
+    const settings = await this.get();
+    return settings?.etoroApiKey || null;
+  },
+
+  async getEtoroKeys() {
+    const settings = await this.get();
+    return {
+      apiKey: settings?.etoroApiKey || null,
+      userKey: settings?.etoroUserKey || null,
+    };
+  },
+
+  async setEtoroKeys(apiKey, userKey) {
+    Portfolio.clearEtoroCache();
+    return this.save({ etoroApiKey: apiKey, etoroUserKey: userKey });
+  },
+
   async setEtoroUserKey(key) {
     Portfolio.clearEtoroCache();
     return this.save({ etoroUserKey: key });
+  },
+
+  async clearEtoroKeys() {
+    Portfolio.clearEtoroCache();
+    return this.save({ etoroApiKey: null, etoroUserKey: null });
   },
 
   async clearEtoroUserKey() {
@@ -64,7 +87,7 @@ export const UserSettings = {
   },
 
   async isEtoroConnected() {
-    const key = await this.getEtoroUserKey();
-    return !!key;
+    const keys = await this.getEtoroKeys();
+    return !!keys.apiKey && !!keys.userKey;
   },
 };
