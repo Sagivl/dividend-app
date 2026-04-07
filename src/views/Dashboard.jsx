@@ -13,7 +13,7 @@ import WatchlistButton from "../components/WatchlistButton";
 import BuyButton from "../components/trading/BuyButton";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, PieChart, Loader2, CheckCircle, Search } from "lucide-react";
+import { FileText, PieChart, CheckCircle } from "lucide-react";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
 import { PageContainer, LoadingState } from "@/components/layout";
 
@@ -36,21 +36,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     const init = async () => {
-      try {
-        const user = await User.me();
+      // Run user fetch and stock loading in parallel — don't gate stocks on user/seeding
+      const userPromise = User.me().catch(err => {
+        console.error("Error fetching current user:", err);
+        return null;
+      });
+
+      // Start loading stocks immediately (don't wait for seeding)
+      loadAllStocks();
+
+      const user = await userPromise;
+      if (user) {
         setCurrentUser(user);
-        
-        // Seed sample stocks (will skip if already seeded with current version)
-        await Stock.seedSampleStocks();
-        
-        // For new users: show onboarding
         if (user.is_new_user && !user.onboarding_completed) {
           setShowOnboarding(true);
         }
-      } catch (error) {
-        console.error("Error fetching current user:", error);
       }
-      loadAllStocks();
+
+      // Seed in background — next load will pick them up
+      Stock.seedSampleStocks().catch(() => {});
     };
     init();
   }, []);

@@ -7,8 +7,6 @@ export const metadata: Metadata = {
   description: 'Analyze dividend stocks and make informed investment decisions',
 };
 
-export const dynamic = 'force-dynamic';
-
 export default function RootLayout({
   children,
 }: {

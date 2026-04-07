@@ -237,37 +237,43 @@ export default function PortfolioView() {
         changed = true;
       };
 
-      for (const rawId of unknownIds) {
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < unknownIds.length; i += BATCH_SIZE) {
         if (cancelled) break;
-        const k = toKey(rawId);
-        try {
-          const res = await etoroFetch(`/api/etoro/api/v1/market-data/search?instrumentId=${rawId}`);
-          if (res.ok) {
-            const data = await res.json();
-            const item = data.items?.[0];
-            if (item) {
-              cache[k] = item.internalSymbolFull || item.symbolFull || `ID:${rawId}`;
-              assetClasses[k] = item.internalAssetClassName || 'Unknown';
-              const divRate = parseFloat(item['dividendRate-TTM']) || parseFloat(item['dividendRate-Annual']) || 0;
-              const currentPrice = parseFloat(item.currentRate) || 0;
-              const divYield = currentPrice > 0 ? (divRate / currentPrice) * 100 : 0;
-              meta[k] = {
-                logo50x50: item.logo50x50 || null,
-                name: item.internalInstrumentDisplayName || null,
-                dividendYield: divYield,
-                dividendRate: divRate,
-                hasDividendData: true,
-                resolutionFailed: false,
-              };
-              changed = true;
-            } else {
-              markFailed(rawId);
-            }
+        const batch = unknownIds.slice(i, i + BATCH_SIZE);
+
+        const results = await Promise.allSettled(
+          batch.map(rawId =>
+            etoroFetch(`/api/etoro/api/v1/market-data/search?instrumentId=${rawId}`)
+              .then(async res => ({ rawId, ok: res.ok, data: res.ok ? await res.json() : null }))
+              .catch(() => ({ rawId, ok: false, data: null }))
+          )
+        );
+
+        for (const result of results) {
+          if (cancelled) break;
+          const { rawId, ok, data } = result.status === 'fulfilled' ? result.value : { rawId: null, ok: false, data: null };
+          if (!rawId) continue;
+          const k = toKey(rawId);
+          const item = ok && data?.items?.[0];
+          if (item) {
+            cache[k] = item.internalSymbolFull || item.symbolFull || `ID:${rawId}`;
+            assetClasses[k] = item.internalAssetClassName || 'Unknown';
+            const divRate = parseFloat(item['dividendRate-TTM']) || parseFloat(item['dividendRate-Annual']) || 0;
+            const currentPrice = parseFloat(item.currentRate) || 0;
+            const divYield = currentPrice > 0 ? (divRate / currentPrice) * 100 : 0;
+            meta[k] = {
+              logo50x50: item.logo50x50 || null,
+              name: item.internalInstrumentDisplayName || null,
+              dividendYield: divYield,
+              dividendRate: divRate,
+              hasDividendData: true,
+              resolutionFailed: false,
+            };
+            changed = true;
           } else {
             markFailed(rawId);
           }
-        } catch {
-          markFailed(rawId);
         }
       }
       if (!cancelled && changed) {

@@ -120,8 +120,27 @@ export const Stock = {
     };
   },
 
+  /** Columns needed for listing / card display (excludes heavy JSON arrays). */
+  LIST_COLUMNS: [
+    'id', 'ticker', 'exchange', 'name', 'sector', 'price',
+    'min_52w', 'max_52w', 'target_1y', 'market_cap',
+    'pe_ratio', 'sector_pe', 'sp500_pe', 'eps',
+    'dividend_yield', 'ex_date', 'dividend_pay_date',
+    'dividend_years', 'avg_div_growth_5y', 'avg_div_growth_20y',
+    'div_distribution_sequence', 'payout_ratio', 'chowder',
+    'beta', 'roe', 'credit_rating',
+    'diluted_shares', 'basic_shares',
+    'ebit', 'ebitda', 'net_income',
+    'net_income_prev', 'net_income_prev2', 'net_income_minus_buyback',
+    'total_debt', 'shareholder_equity', 'ebt',
+    'five_year_total_return', 'dividend_stability_score',
+    'news_sentiment', 'analyst_recommendation',
+    'logo50x50', 'logo150x150',
+    'last_updated', 'is_sample', 'created_at', 'updated_at',
+  ].join(','),
+
   async list(sortBy = '-last_updated') {
-    let query = supabase.from('stocks').select('*');
+    let query = supabase.from('stocks').select(this.LIST_COLUMNS);
 
     if (sortBy.startsWith('-')) {
       const field = sortBy.slice(1);
@@ -135,8 +154,8 @@ export const Stock = {
     return data || [];
   },
 
-  async filter(criteria) {
-    let query = supabase.from('stocks').select('*');
+  async filter(criteria, { fullColumns = false } = {}) {
+    let query = supabase.from('stocks').select(fullColumns ? '*' : this.LIST_COLUMNS);
 
     for (const [key, value] of Object.entries(criteria)) {
       query = query.eq(key, value);
@@ -211,11 +230,19 @@ export const Stock = {
       const sampleStocksModule = await import('@/data/sampleStocks');
       const sampleStocks = sampleStocksModule.default;
 
-      for (const stock of sampleStocks) {
-        await this.create({ ...stock, is_sample: true });
-      }
+      const rows = sampleStocks.map(stock => {
+        const clean = sanitizeForPersistence({ ...stock, is_sample: true });
+        if (clean.ticker) clean.ticker = clean.ticker.toUpperCase().trim();
+        return clean;
+      });
 
-      console.log(`Seeded ${sampleStocks.length} sample stocks`);
+      const { error } = await supabase
+        .from('stocks')
+        .upsert(rows, { onConflict: 'ticker', ignoreDuplicates: true });
+
+      if (error) throw error;
+
+      console.log(`Seeded ${rows.length} sample stocks (batch)`);
       return true;
     } catch (error) {
       console.error('Error seeding sample stocks:', error);

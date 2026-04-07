@@ -3,6 +3,8 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseBrowserClient, clearSessionCache } from '@/lib/supabaseClient';
 
+const AUTH_TIMEOUT_MS = 8000;
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -16,14 +18,18 @@ export const AuthProvider = ({ children }) => {
   const supabase = getSupabaseBrowserClient();
 
   const fetchProfile = useCallback(async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (!error && data) {
-      setProfile(data);
+      if (!error && data) {
+        setProfile(data);
+      }
+    } catch {
+      // Profile fetch is non-critical — don't block auth on it
     }
   }, [supabase]);
 
@@ -32,6 +38,13 @@ export const AuthProvider = ({ children }) => {
     initRef.current = true;
 
     let cancelled = false;
+
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        cancelled = true;
+        setIsLoadingAuth(false);
+      }
+    }, AUTH_TIMEOUT_MS);
 
     const checkSession = async () => {
       try {
@@ -48,7 +61,9 @@ export const AuthProvider = ({ children }) => {
         if (session?.user) {
           setUser(session.user);
           setIsAuthenticated(true);
-          await fetchProfile(session.user.id);
+          setIsLoadingAuth(false);
+          // Fetch profile in background — don't block auth resolution
+          fetchProfile(session.user.id);
         }
       } catch (err) {
         if (!cancelled) {
@@ -58,6 +73,7 @@ export const AuthProvider = ({ children }) => {
         if (!cancelled) {
           setIsLoadingAuth(false);
         }
+        clearTimeout(timeoutId);
       }
     };
 
