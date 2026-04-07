@@ -136,7 +136,7 @@ export const Stock = {
     'five_year_total_return', 'dividend_stability_score',
     'news_sentiment', 'analyst_recommendation',
     'logo50x50', 'logo150x150',
-    'last_updated', 'is_sample', 'created_at', 'updated_at',
+    'last_updated', 'is_sample', 'created_at',
   ].join(','),
 
   async list(sortBy = '-last_updated') {
