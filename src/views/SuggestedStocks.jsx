@@ -76,9 +76,12 @@ export default function SuggestedStocks() {
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
+      const t0 = performance.now();
       try {
         const supabase = getSupabaseBrowserClient();
         const { data: { session } } = await supabase.auth.getSession();
+        const t1 = performance.now();
+        console.log(`[Watchlist] getSession: ${(t1 - t0).toFixed(0)}ms`);
 
         if (!session?.access_token) {
           setCurrentUserEmail("");
@@ -90,6 +93,9 @@ export default function SuggestedStocks() {
         const res = await fetch('/api/watchlist-stocks', {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
+        const t2 = performance.now();
+        console.log(`[Watchlist] API fetch: ${(t2 - t1).toFixed(0)}ms`);
+        console.log(`[Watchlist] Server-Timing: ${res.headers.get('Server-Timing')}`);
 
         if (!res.ok) {
           setCurrentUserEmail("");
@@ -116,6 +122,7 @@ export default function SuggestedStocks() {
           });
 
         setAllStocks(uniqueStocks);
+        console.log(`[Watchlist] Total load: ${(performance.now() - t0).toFixed(0)}ms, ${uniqueStocks.length} stocks`);
       } catch (error) {
         console.error("Error loading stocks:", error);
         setCurrentUserEmail("");
