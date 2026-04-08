@@ -74,7 +74,7 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-background text-foreground flex flex-col scrollbar-dark">
       <header className="bg-card/80 backdrop-blur-md shadow-lg shadow-black/10 border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-12 sm:h-16">
             <div 
               onClick={() => router.push("/")} 
               className="flex items-center group cursor-pointer shrink-0"

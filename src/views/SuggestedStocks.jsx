@@ -355,7 +355,7 @@ export default function SuggestedStocks() {
           </div>
         ) : (
           <div className="w-full">
-            <div className="sticky top-16 bg-slate-900/95 backdrop-blur-sm z-10 border-b border-slate-700 py-3 px-3 sm:px-4">
+            <div className="sticky top-12 sm:top-16 bg-slate-900/95 backdrop-blur-sm z-10 border-b border-slate-700 py-2 px-3 sm:py-3 sm:px-4">
               {/* Desktop: Title & Description in Sticky Bar */}
               <div className="hidden sm:flex sm:items-center sm:gap-2.5">
                 {CurrentFilterIcon && <CurrentFilterIcon className="h-5 w-5 text-green-400 flex-shrink-0" />} {/* Icon color */}
