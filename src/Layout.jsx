@@ -30,6 +30,7 @@ export default function Layout({ children, currentPageName }) {
   const { user, logout } = useAuth();
   const [navItems, setNavItems] = useState([]);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -107,57 +108,6 @@ export default function Layout({ children, currentPageName }) {
                   );
                 })}
               </nav>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <span className="inline-flex items-center justify-center">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="text-muted-foreground hover:text-foreground hover:bg-accent text-sm ml-1 focus-visible:ring-primary"
-                    >
-                      <HelpCircle className="h-4 w-4 lg:mr-2" />
-                      <span className="hidden lg:inline">How it Works</span>
-                    </Button>
-                  </span>
-                </DialogTrigger>
-                <DialogContent className="w-full h-[100dvh] max-w-full max-h-full rounded-none sm:w-auto sm:h-auto sm:max-w-xl md:max-w-2xl sm:rounded-lg sm:max-h-[85vh] bg-card border-border text-foreground">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl sm:text-2xl text-foreground">How it Works</DialogTitle>
-                    <DialogDescription className="text-sm sm:text-base text-left py-2 sm:py-3 max-h-[calc(100dvh-120px)] sm:max-h-[70vh] overflow-y-auto text-muted-foreground">
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-semibold mb-2 text-foreground">Getting Started:</h4>
-                          <ol className="list-decimal list-inside space-y-1 ml-2 text-muted-foreground">
-                            <li>Search for a stock using the ticker symbol or company name.</li>
-                            <li>The AI will attempt to automatically fetch comprehensive financial data for the stock.</li>
-                            <li>Review and complete any missing information on the "Stats" tab. You can also use the "Fetch with AI" button on this tab to try and populate more fields.</li>
-                            <li>Explore "Analysis" for key metric evaluations and "Trends" for historical performance charts.</li>
-                            <li>Your analyzed stocks are saved and accessible from the "Watchlist" tab.</li>
-                          </ol>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold mb-2 text-foreground">Key Metrics Explained:</h4>
-                          <ul className="space-y-2 text-sm text-muted-foreground">
-                            <li><strong className="text-foreground">Dividend Yield:</strong> Annual dividend per share / stock price. A measure of dividend return.</li>
-                            <li><strong className="text-foreground">P/E Ratio:</strong> Stock price / Earnings Per Share (EPS). Higher P/E can indicate higher growth expectations.</li>
-                            <li><strong className="text-foreground">Payout Ratio:</strong> Dividends per share / EPS. Percentage of earnings paid as dividends.</li>
-                            <li><strong className="text-foreground">5Y Div Growth:</strong> Average annual dividend growth over 5 years.</li>
-                            <li><strong className="text-foreground">Chowder Number:</strong> Dividend Yield + 5Y Div Growth. Often, &gt;11-12 is considered good.</li>
-                            <li><strong className="text-foreground">ROE:</strong> Net Income / Shareholder Equity. Measures profitability. &gt;15% is often good.</li>
-                            <li><strong className="text-foreground">Beta:</strong> Stock's volatility vs. market. &lt;1 less volatile, &gt;1 more volatile.</li>
-                          </ul>
-                        </div>
-                      </div>
-                      <Alert variant="destructive" className="mt-3 sm:mt-4 bg-destructive/10 border-destructive/50 text-destructive-foreground">
-                        <LucideAlertCircleIcon className="h-4 w-4 text-destructive" />
-                        <AlertDescription className="text-xs sm:text-sm">
-                          Financial data provided by AI may not always be 100% accurate or up-to-date. Always cross-reference with official sources before making investment decisions. This tool is for informational purposes only and not financial advice.
-                        </AlertDescription>
-                      </Alert>
-                    </DialogDescription>
-                  </DialogHeader>
-                </DialogContent>
-              </Dialog>
               <div className="hidden sm:block">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -170,6 +120,10 @@ export default function Layout({ children, currentPageName }) {
                       {user?.email}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setHowItWorksOpen(true)} className="cursor-pointer">
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      How it Works
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push(createPageUrl("Settings"))} className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
@@ -214,6 +168,14 @@ export default function Layout({ children, currentPageName }) {
             </div>
 
             <div className="space-y-1">
+              <button
+                onClick={() => { setMoreSheetOpen(false); setHowItWorksOpen(true); }}
+                className="flex items-center w-full px-4 py-3.5 rounded-xl text-foreground hover:bg-accent active:bg-accent/80 transition-colors"
+              >
+                <HelpCircle className="h-5 w-5 mr-3 text-muted-foreground" />
+                <span className="flex-1 text-left">How it Works</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
               <button
                 onClick={() => { setMoreSheetOpen(false); router.push(createPageUrl("Settings")); }}
                 className="flex items-center w-full px-4 py-3.5 rounded-xl text-foreground hover:bg-accent active:bg-accent/80 transition-colors"
@@ -276,7 +238,47 @@ export default function Layout({ children, currentPageName }) {
           </div>
       </nav>
 
-      <div className="sm:hidden h-16"></div> 
+      <div className="sm:hidden h-16"></div>
+
+      <Dialog open={howItWorksOpen} onOpenChange={setHowItWorksOpen}>
+        <DialogContent className="w-full h-[100dvh] max-w-full max-h-full rounded-none sm:w-auto sm:h-auto sm:max-w-xl md:max-w-2xl sm:rounded-lg sm:max-h-[85vh] bg-card border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl text-foreground">How it Works</DialogTitle>
+            <DialogDescription className="text-sm sm:text-base text-left py-2 sm:py-3 max-h-[calc(100dvh-120px)] sm:max-h-[70vh] overflow-y-auto text-muted-foreground">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2 text-foreground">Getting Started:</h4>
+                  <ol className="list-decimal list-inside space-y-1 ml-2 text-muted-foreground">
+                    <li>Search for a stock using the ticker symbol or company name.</li>
+                    <li>The AI will attempt to automatically fetch comprehensive financial data for the stock.</li>
+                    <li>Review and complete any missing information on the "Stats" tab. You can also use the "Fetch with AI" button on this tab to try and populate more fields.</li>
+                    <li>Explore "Analysis" for key metric evaluations and "Trends" for historical performance charts.</li>
+                    <li>Your analyzed stocks are saved and accessible from the "Watchlist" tab.</li>
+                  </ol>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2 text-foreground">Key Metrics Explained:</h4>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li><strong className="text-foreground">Dividend Yield:</strong> Annual dividend per share / stock price. A measure of dividend return.</li>
+                    <li><strong className="text-foreground">P/E Ratio:</strong> Stock price / Earnings Per Share (EPS). Higher P/E can indicate higher growth expectations.</li>
+                    <li><strong className="text-foreground">Payout Ratio:</strong> Dividends per share / EPS. Percentage of earnings paid as dividends.</li>
+                    <li><strong className="text-foreground">5Y Div Growth:</strong> Average annual dividend growth over 5 years.</li>
+                    <li><strong className="text-foreground">Chowder Number:</strong> Dividend Yield + 5Y Div Growth. Often, &gt;11-12 is considered good.</li>
+                    <li><strong className="text-foreground">ROE:</strong> Net Income / Shareholder Equity. Measures profitability. &gt;15% is often good.</li>
+                    <li><strong className="text-foreground">Beta:</strong> Stock's volatility vs. market. &lt;1 less volatile, &gt;1 more volatile.</li>
+                  </ul>
+                </div>
+              </div>
+              <Alert variant="destructive" className="mt-3 sm:mt-4 bg-destructive/10 border-destructive/50 text-destructive-foreground">
+                <LucideAlertCircleIcon className="h-4 w-4 text-destructive" />
+                <AlertDescription className="text-xs sm:text-sm">
+                  Financial data provided by AI may not always be 100% accurate or up-to-date. Always cross-reference with official sources before making investment decisions. This tool is for informational purposes only and not financial advice.
+                </AlertDescription>
+              </Alert>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
