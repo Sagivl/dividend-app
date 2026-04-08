@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { Stock } from "@/entities/Stock";
-import { Watchlist } from "@/entities/Watchlist";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -82,26 +80,29 @@ export default function SuggestedStocks() {
         const supabase = getSupabaseBrowserClient();
         const { data: { session } } = await supabase.auth.getSession();
 
-        if (!session?.user?.email) {
+        if (!session?.access_token) {
           setCurrentUserEmail("");
           setAllStocks([]);
           setIsLoading(false);
           return;
         }
 
-        setCurrentUserEmail(session.user.email);
+        const res = await fetch('/api/watchlist-stocks', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
 
-        const watchlistTickers = await Watchlist.listTickers();
-        if (watchlistTickers.length === 0) {
+        if (!res.ok) {
+          setCurrentUserEmail("");
           setAllStocks([]);
           setIsLoading(false);
           return;
         }
 
-        const fetchedStocks = await Stock.listByTickers(watchlistTickers);
+        const { stocks, email } = await res.json();
+        setCurrentUserEmail(email || "");
 
         const seenTickers = new Set();
-        const uniqueStocks = fetchedStocks
+        const uniqueStocks = (stocks || [])
           .sort((a, b) => {
             const dateA = a.last_updated ? new Date(a.last_updated) : (a.updated_date ? new Date(a.updated_date) : new Date(0));
             const dateB = b.last_updated ? new Date(b.last_updated) : (b.updated_date ? new Date(b.updated_date) : new Date(0));
