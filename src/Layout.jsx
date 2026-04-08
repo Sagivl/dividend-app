@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
-import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, BarChart2, Wallet, Settings, LogOut, User } from "lucide-react";
+import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, BarChart2, Wallet, Settings, LogOut, User, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,12 +23,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/AuthContext";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 
 export default function Layout({ children, currentPageName }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [navItems, setNavItems] = useState([]);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -64,13 +72,6 @@ export default function Layout({ children, currentPageName }) {
           path: createPageUrl("CompareStocks"),
           icon: BarChart2,
           description: "Compare dividend stocks"
-      },
-      {
-          name: "Settings",
-          displayName: "Settings",
-          path: createPageUrl("Settings"),
-          icon: Settings,
-          description: "App settings & eToro connection"
       }
     ]);
   }, [currentPageName]);
@@ -175,6 +176,10 @@ export default function Layout({ children, currentPageName }) {
                     {user?.email}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push(createPageUrl("Settings"))} className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:text-red-400 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     Log out
@@ -215,8 +220,49 @@ export default function Layout({ children, currentPageName }) {
                       </Link>
                   );
               })}
+              <button
+                onClick={() => setMoreSheetOpen(true)}
+                className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset relative ${
+                  currentPageName === "Settings"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-primary/80"
+                }`}
+              >
+                <MoreHorizontal className="h-6 w-6 mb-0.5" />
+                <span className={`text-[10px] font-medium tracking-tight ${currentPageName === "Settings" ? "text-primary" : "text-muted-foreground"}`}>
+                  More
+                </span>
+              </button>
           </div>
       </nav>
+
+      <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl px-2 pb-8 pt-4">
+          <SheetHeader className="px-4 pb-2">
+            <SheetTitle className="text-sm font-normal text-muted-foreground text-left truncate">
+              {user?.email}
+            </SheetTitle>
+            <SheetDescription className="sr-only">Account menu</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-1">
+            <button
+              onClick={() => { router.push(createPageUrl("Settings")); setMoreSheetOpen(false); }}
+              className="flex items-center w-full px-4 py-3 rounded-lg text-foreground hover:bg-accent transition-colors"
+            >
+              <Settings className="h-5 w-5 mr-3 text-muted-foreground" />
+              Settings
+            </button>
+            <button
+              onClick={() => { handleLogout(); setMoreSheetOpen(false); }}
+              className="flex items-center w-full px-4 py-3 rounded-lg text-red-400 hover:bg-accent transition-colors"
+            >
+              <LogOut className="h-5 w-5 mr-3" />
+              Log out
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <div className="sm:hidden h-16"></div> 
     </div>
   );
