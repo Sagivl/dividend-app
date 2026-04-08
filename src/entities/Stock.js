@@ -139,6 +139,13 @@ export const Stock = {
     'last_updated', 'is_sample', 'created_at',
   ].join(','),
 
+  CARD_COLUMNS: [
+    'id', 'ticker', 'name', 'sector', 'price',
+    'dividend_yield', 'avg_div_growth_5y', 'roe',
+    'market_cap', 'ebt',
+    'last_updated', 'updated_date',
+  ].join(','),
+
   async list(sortBy = '-last_updated') {
     let query = supabase.from('stocks').select(this.LIST_COLUMNS);
 
@@ -154,11 +161,11 @@ export const Stock = {
     return data || [];
   },
 
-  async listByTickers(tickers) {
+  async listByTickers(tickers, { columns = null } = {}) {
     if (!tickers || tickers.length === 0) return [];
     const { data, error } = await supabase
       .from('stocks')
-      .select(this.LIST_COLUMNS)
+      .select(columns || this.CARD_COLUMNS)
       .in('ticker', tickers);
     if (error) throw error;
     return data || [];

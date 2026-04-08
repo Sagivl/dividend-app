@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { Stock } from "@/entities/Stock";
-import { User } from "@/entities/User";
 import { Watchlist } from "@/entities/Watchlist";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,21 +79,19 @@ export default function SuggestedStocks() {
     const init = async () => {
       setIsLoading(true);
       try {
-        const [user, watchlistItems] = await Promise.all([
-          User.me(),
-          Watchlist.list(),
-        ]);
+        const supabase = getSupabaseBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (!user?.email) {
+        if (!session?.user?.email) {
           setCurrentUserEmail("");
           setAllStocks([]);
           setIsLoading(false);
           return;
         }
 
-        setCurrentUserEmail(user.email);
+        setCurrentUserEmail(session.user.email);
 
-        const watchlistTickers = watchlistItems.map(item => item.ticker.toUpperCase());
+        const watchlistTickers = await Watchlist.listTickers();
         if (watchlistTickers.length === 0) {
           setAllStocks([]);
           setIsLoading(false);
@@ -102,31 +100,21 @@ export default function SuggestedStocks() {
 
         const fetchedStocks = await Stock.listByTickers(watchlistTickers);
 
-        const uniqueStocksByTicker = [];
         const seenTickers = new Set();
+        const uniqueStocks = fetchedStocks
+          .sort((a, b) => {
+            const dateA = a.last_updated ? new Date(a.last_updated) : (a.updated_date ? new Date(a.updated_date) : new Date(0));
+            const dateB = b.last_updated ? new Date(b.last_updated) : (b.updated_date ? new Date(b.updated_date) : new Date(0));
+            return dateB - dateA;
+          })
+          .filter(stock => {
+            const key = stock.ticker?.toUpperCase();
+            if (!key || seenTickers.has(key)) return false;
+            seenTickers.add(key);
+            return true;
+          });
 
-        fetchedStocks.sort((a, b) => {
-          if (a.ticker < b.ticker) return -1;
-          if (a.ticker > b.ticker) return 1;
-          const dateA = a.updated_date ? new Date(a.updated_date) : new Date(0);
-          const dateB = b.updated_date ? new Date(b.updated_date) : new Date(0);
-          return dateB - dateA;
-        });
-
-        for (const stock of fetchedStocks) {
-          if (stock.ticker && !seenTickers.has(stock.ticker.toUpperCase())) {
-            uniqueStocksByTicker.push(stock);
-            seenTickers.add(stock.ticker.toUpperCase());
-          }
-        }
-
-        uniqueStocksByTicker.sort((a, b) => {
-          const dateA = a.last_updated ? new Date(a.last_updated) : (a.updated_date ? new Date(a.updated_date) : new Date(0));
-          const dateB = b.last_updated ? new Date(b.last_updated) : (b.updated_date ? new Date(b.updated_date) : new Date(0));
-          return dateB - dateA;
-        });
-
-        setAllStocks(uniqueStocksByTicker);
+        setAllStocks(uniqueStocks);
       } catch (error) {
         console.error("Error loading stocks:", error);
         setCurrentUserEmail("");

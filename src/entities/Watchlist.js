@@ -17,6 +17,17 @@ export const Watchlist = {
     return data || [];
   },
 
+  async listTickers() {
+    const userId = await getUserId();
+    const { data, error } = await supabase
+      .from('watchlist')
+      .select('ticker')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return (data || []).map(row => row.ticker.toUpperCase());
+  },
+
   async add(ticker) {
     if (!ticker) return null;
 
