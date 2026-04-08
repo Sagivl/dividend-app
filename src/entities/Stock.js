@@ -143,7 +143,7 @@ export const Stock = {
     'id', 'ticker', 'name', 'sector', 'price',
     'dividend_yield', 'avg_div_growth_5y', 'roe',
     'market_cap', 'ebt',
-    'last_updated', 'updated_date',
+    'last_updated',
   ].join(','),
 
   async list(sortBy = '-last_updated') {

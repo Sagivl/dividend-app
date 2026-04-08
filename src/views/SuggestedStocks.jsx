@@ -98,6 +98,8 @@ export default function SuggestedStocks() {
         console.log(`[Watchlist] Server-Timing: ${res.headers.get('Server-Timing')}`);
 
         if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          console.error(`[Watchlist] API error ${res.status}:`, errBody);
           setCurrentUserEmail("");
           setAllStocks([]);
           setIsLoading(false);
