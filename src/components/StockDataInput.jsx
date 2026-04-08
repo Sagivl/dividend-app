@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Save, Calendar, Info, Sparkles, Loader2, AlertCircle as LucideAlertCircle, Database } from "lucide-react";
+import { Save, Calendar, Sparkles, Loader2, AlertCircle as LucideAlertCircle, Database } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parseISO, isValid, parse } from "date-fns";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { fetchHybridStockData, getDataSourcesStatus } from "@/functions/hybridDataFetcher";
 import { Stock } from "@/entities/Stock";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 const initialStockDataState = {
     ticker: "", exchange: "", name: "", sector: "", price: "", min_52w: "", max_52w: "",
@@ -380,56 +380,11 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
     await saveStockData(data);
   };
 
-  const MobileTooltip = ({ text }) => {
-    const [open, setOpen] = useState(false);
-
-    const handleOpenChange = (newOpen) => {
-      // Only use Radix's open/close for hover-capable devices (desktop)
-      // On touch devices, we control state via onClick only to avoid double-toggle
-      if (window.matchMedia('(hover: hover)').matches) {
-        setOpen(newOpen);
-      }
-    };
-    
-    return (
-      <TooltipProvider>
-        <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
-          <TooltipTrigger asChild>
-            <button 
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen((prev) => !prev);
-              }}
-              className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
-              style={{ minWidth: '24px', minHeight: '24px' }}
-            >
-              <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            align="center"
-            className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-            onPointerDownOutside={() => setOpen(false)}
-            sideOffset={5}
-            collisionPadding={10}
-          >
-            <p>{text}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
-
-  const renderTooltip = (text) => <MobileTooltip text={text} />;
-
   const renderField = (id, label, description = null, type = "text") => (
     <div className="space-y-1 sm:space-y-2">
       <div className="flex items-center">
         <Label htmlFor={id} className="text-xs sm:text-sm font-medium text-slate-300">{label}</Label>
-        {description && renderTooltip(description)}
+        {description && <InfoTooltip explanation={description} />}
       </div>
       <Input
         id={id}
@@ -508,7 +463,7 @@ const StockDataInput = ({ stock, onSave, isLoading }) => {
             <div className="space-y-1 sm:space-y-2">
               <div className="flex items-center">
                 <Label htmlFor="pay_date_button" className="text-xs sm:text-sm font-medium text-slate-300">Dividend Pay Date</Label>
-                {renderTooltip("Date when dividend is paid to shareholders")}
+                <InfoTooltip explanation="Date when dividend is paid to shareholders" />
               </div>
               <Popover>
                 <PopoverTrigger asChild>

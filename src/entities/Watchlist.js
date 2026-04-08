@@ -28,7 +28,7 @@ export const Watchlist = {
       .select('*')
       .eq('user_id', userId)
       .eq('ticker', normalizedTicker)
-      .single();
+      .maybeSingle();
 
     if (existing) return existing;
 
@@ -69,7 +69,7 @@ export const Watchlist = {
       .select('id')
       .eq('user_id', userId)
       .eq('ticker', normalizedTicker)
-      .single();
+      .maybeSingle();
 
     return !!data && !error;
   },

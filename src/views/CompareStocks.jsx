@@ -8,64 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus, BarChart2, Loader2, Info as InfoIcon, Check, ArrowLeft } from "lucide-react";
 import { generateStockComparison, hasOpenAIKey } from "@/functions/aiAnalysis";
 import StockSearch from "../components/StockSearch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { metricGlossary } from "@/config/metricHealthConfig";
 import MarketCapDisplay from "../components/MarketCapDisplay";
 import StockLogo from "../components/StockLogo";
+import MetricHealthBadge from "../components/MetricHealthBadge";
 import { PageContainer, PageHeader } from "@/components/layout";
-
-// MetricTooltip component definition - supports both hover (desktop) and click (mobile)
-const MetricTooltip = ({ explanation }) => {
-  const [open, setOpen] = React.useState(false);
-
-  const handleOpenChange = (newOpen) => {
-    // Only use Radix's open/close for hover-capable devices (desktop)
-    // On touch devices, we control state via onClick only to avoid double-toggle
-    if (window.matchMedia('(hover: hover)').matches) {
-      setOpen(newOpen);
-    }
-  };
-  
-  return (
-    <TooltipProvider>
-      <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setOpen((prev) => !prev);
-            }}
-            className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
-            style={{ minWidth: '24px', minHeight: '24px' }}
-          >
-            <InfoIcon className="h-4 w-4 text-slate-400 hover:text-slate-300" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent 
-          className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-          onPointerDownOutside={() => setOpen(false)}
-          sideOffset={5}
-          collisionPadding={10}
-        >
-          <p>{explanation}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-};
-
-const metricExplanations = {
-  dividend_yield: "Annual dividend per share divided by the stock's current price. Higher is generally better.",
-  payout_ratio: "The percentage of earnings paid out as dividends. A lower ratio (e.g., < 70%) can indicate a more sustainable dividend. Values outside 0-100% may be warning signs.",
-  avg_div_growth_5y: "The average annual growth rate of the dividend over the last 5 years. Higher is better for dividend growth investors.",
-  chowder: "Dividend Yield + 5-Year Dividend Growth. A score above 10.5-12 is often considered attractive.",
-  dividend_years: "The number of consecutive years the company has paid a dividend. A long history indicates reliability.",
-  debt_to_equity: "Total Debt / Shareholder Equity. Measures a company's financial leverage. A lower ratio is generally safer.",
-  five_year_total_return: "The total return of the stock over the past 5 years, including price appreciation and dividends. Higher is better.",
-  dividend_stability_score: "A score indicating the historical stability of the dividend payments. Higher is better.",
-  market_cap: "The total value of a company's outstanding shares. Generally, larger market caps indicate more stable, less volatile companies."
-};
 
 const metricsToDisplay = [
   { key: 'dividend_yield', label: 'Dividend Yield', format: 'percentage', preference: 'high' },
@@ -494,21 +442,23 @@ Focus on dividend sustainability, growth potential, financial strength, and over
                           <td className="p-3 font-medium text-slate-300 min-w-[120px]">
                             <div className="flex items-start">
                               <span className="text-sm leading-tight">{label}</span>
-                              <MetricTooltip explanation={metricExplanations[key]} />
+                              <InfoTooltip explanation={metricGlossary[key]?.short || ""} />
                             </div>
                           </td>
                           {selectedStocks.map(stock => {
                             const isWinner = winners.includes(stock.ticker);
                             let value;
 
-                            // Removed market_cap special handling here as it's now a separate row
                             if (key === 'chowder') value = calculateChowder(stock);
                             else if (key === 'debt_to_equity') value = calculateDebtToEquity(stock);
                             else value = stock[key];
 
                             return (
                               <td key={`${stock.id}-${key}`} className={`p-3 text-center transition-colors min-w-[120px] ${isWinner ? 'bg-green-900/40 text-green-300 font-semibold' : 'text-slate-200'}`}>
-                                <span className="text-sm">{formatValue(value, format)}</span>
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="text-sm">{formatValue(value, format)}</span>
+                                  <MetricHealthBadge metricKey={key} value={value} size="sm" showLabel={false} />
+                                </div>
                               </td>
                             );
                           })}

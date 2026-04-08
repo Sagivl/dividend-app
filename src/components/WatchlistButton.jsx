@@ -11,12 +11,16 @@ export default function WatchlistButton({
   size = 'md',
   className = '',
   showLabel = false,
-  onToggle = null
+  onToggle = null,
+  initialIsInWatchlist = undefined
 }) {
-  const [isInWatchlist, setIsInWatchlist] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const skipInitialCheck = initialIsInWatchlist !== undefined;
+  const [isInWatchlist, setIsInWatchlist] = useState(skipInitialCheck ? initialIsInWatchlist : false);
+  const [isLoading, setIsLoading] = useState(!skipInitialCheck);
 
   useEffect(() => {
+    if (skipInitialCheck) return;
+
     const checkWatchlist = async () => {
       if (!ticker) {
         setIsLoading(false);
@@ -34,7 +38,7 @@ export default function WatchlistButton({
     };
 
     checkWatchlist();
-  }, [ticker]);
+  }, [ticker, skipInitialCheck]);
 
   const handleToggle = async (e) => {
     e.preventDefault();

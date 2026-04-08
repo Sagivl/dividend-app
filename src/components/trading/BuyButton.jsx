@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TradeDialog from './TradeDialog';
 
@@ -16,15 +15,13 @@ export default function BuyButton({ stock, size = 'sm', className }) {
   return (
     <>
       <Button
-        variant="outline"
         size={buttonSize}
         onClick={() => setOpen(true)}
         className={cn(
-          'gap-1.5 text-green-400 border-green-500/30 hover:bg-green-500/10 hover:text-green-300',
+          'bg-[#3FB923] hover:bg-green-600 text-white font-semibold px-4 shadow-sm',
           className
         )}
       >
-        <ShoppingCart className={cn(size === 'md' ? 'h-4 w-4' : 'h-3.5 w-3.5')} />
         Buy
       </Button>
 

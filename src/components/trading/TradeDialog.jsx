@@ -31,8 +31,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  ShoppingCart,
-  TrendingDown,
   DollarSign,
   Hash,
   Loader2,
@@ -445,15 +443,9 @@ function TradeForm({
                 Processing...
               </>
             ) : isBuy ? (
-              <>
-                <ShoppingCart className="h-4 w-4" />
-                Buy {ticker}
-              </>
+              `Buy ${ticker}`
             ) : (
-              <>
-                <TrendingDown className="h-4 w-4" />
-                Sell {ticker}
-              </>
+              `Sell ${ticker}`
             )}
           </Button>
           <Button

@@ -34,7 +34,7 @@ import {
   MoreHorizontal, Pencil, Trash2, Plus, ExternalLink,
   TrendingUp, TrendingDown, ArrowUpDown, ArrowUp, ArrowDown,
   Search, ChevronDown, ChevronUp, X, List,
-  ShoppingCart, Link2, Clock, XCircle, RefreshCw, AlertCircle,
+  Link2, Clock, XCircle, RefreshCw, AlertCircle,
   Loader2,
 } from "lucide-react";
 import PortfolioSummary from "./PortfolioSummary";
@@ -472,12 +472,22 @@ export default function HoldingsTab({
 
   const getSwipeActions = (position) => {
     if (position.source === 'etoro') {
-      return [{
+      const actions = [];
+      if (position.instrumentId) {
+        actions.push({
+          label: 'Buy',
+          icon: <TrendingUp className="h-5 w-5" />,
+          onClick: () => handleBuy(position),
+          className: "bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600",
+        });
+      }
+      actions.push({
         label: 'Sell',
         icon: <TrendingDown className="h-5 w-5" />,
         onClick: () => handleSell(position),
         className: "bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600",
-      }];
+      });
+      return actions;
     }
     return [
       {
@@ -696,15 +706,21 @@ export default function HoldingsTab({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {position.source === 'etoro' ? (
-                                <DropdownMenuItem onClick={() => handleSell(position)}>
-                                  <TrendingDown className="h-4 w-4 mr-2" />
-                                  Sell
-                                </DropdownMenuItem>
+                                <>
+                                  {position.instrumentId && (
+                                    <DropdownMenuItem onClick={() => handleBuy(position)} className="text-green-400 font-medium">
+                                      <TrendingUp className="h-4 w-4 mr-2" />
+                                      Buy
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => handleSell(position)} className="text-red-400">
+                                    Sell
+                                  </DropdownMenuItem>
+                                </>
                               ) : (
                                 <>
                                   {position.instrumentId && (
-                                    <DropdownMenuItem onClick={() => handleBuy(position)}>
-                                      <ShoppingCart className="h-4 w-4 mr-2" />
+                                    <DropdownMenuItem onClick={() => handleBuy(position)} className="text-green-400 font-medium">
                                       Buy on eToro
                                     </DropdownMenuItem>
                                   )}
@@ -960,26 +976,34 @@ export default function HoldingsTab({
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {position.source === 'etoro' ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSell(position)}
-                              className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                            >
-                              <TrendingDown className="h-3.5 w-3.5" />
-                              Sell
-                            </Button>
+                            <>
+                              {position.instrumentId && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleBuy(position)}
+                                  className="h-8 bg-[#3FB923] hover:bg-green-600 text-white font-semibold px-3 shadow-sm"
+                                >
+                                  Buy
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSell(position)}
+                                className="h-8 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 font-semibold px-3"
+                              >
+                                Sell
+                              </Button>
+                            </>
                           ) : (
                             <>
                               {position.instrumentId && (
                                 <Button
-                                  variant="ghost"
-                                  size="icon"
+                                  size="sm"
                                   onClick={() => handleBuy(position)}
-                                  className="h-8 w-8 text-green-400 hover:text-green-300 hover:bg-green-500/10"
-                                  title="Buy on eToro"
+                                  className="h-8 bg-[#3FB923] hover:bg-green-600 text-white font-semibold px-3 shadow-sm"
                                 >
-                                  <ShoppingCart className="h-4 w-4" />
+                                  Buy
                                 </Button>
                               )}
                               <Button

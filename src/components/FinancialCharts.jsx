@@ -1,9 +1,10 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Info, CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { metricGlossary } from "@/config/metricHealthConfig";
 import {
   LineChart,
   Line,
@@ -13,53 +14,6 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer
 } from "recharts";
-
-// Chart info tooltip component - supports both hover (desktop) and click (mobile)
-const ChartInfoTooltip = ({ title, explanation }) => {
-  const [open, setOpen] = React.useState(false);
-
-  const handleOpenChange = (newOpen) => {
-    // Only use Radix's open/close for hover-capable devices (desktop)
-    // On touch devices, we control state via onClick only to avoid double-toggle
-    if (window.matchMedia('(hover: hover)').matches) {
-      setOpen(newOpen);
-    }
-  };
-
-  return (
-    <div className="flex items-center">
-      <span className="truncate">{title}</span>
-      <TooltipProvider>
-        <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
-          <TooltipTrigger asChild>
-            <button 
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen((prev) => !prev);
-              }}
-              className="inline-flex items-center justify-center ml-2 p-0.5 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
-              style={{ minWidth: '24px', minHeight: '24px' }}
-            >
-              <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            align="center"
-            className="max-w-xs text-sm p-3 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-            onPointerDownOutside={() => setOpen(false)}
-            sideOffset={5}
-            collisionPadding={10}
-          >
-            <p>{explanation}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  );
-};
 
 const FinancialCharts = ({ stock, chartType = "all" }) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -268,10 +222,9 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
     <Card className="bg-slate-800 border border-slate-700">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg sm:text-xl font-bold text-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <ChartInfoTooltip 
-            title={`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
-            explanation="This chart shows quarterly earnings per share (EPS) performance comparing actual reported earnings against analyst expectations. Green indicates the company beat expectations, while red indicates a miss."
-          />
+          <InfoTooltip explanation={metricGlossary.eps_surprise.long}>
+            {`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
+          </InfoTooltip>
           {hasEPSSurpriseHistory && (
             <div className="flex gap-2 text-xs sm:text-sm">
               <Badge variant="outline" className="bg-green-900/20 text-green-300 border-green-600 flex items-center gap-1">
@@ -421,10 +374,9 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
       <Card className="bg-slate-800 border border-slate-700">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg sm:text-xl font-bold text-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <ChartInfoTooltip 
-              title={`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
-              explanation="Earnings Per Share (EPS) indicates company profitability per outstanding share. Higher EPS suggests stronger profitability."
-            />
+            <InfoTooltip explanation={metricGlossary.eps_trend.long}>
+              {`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
+            </InfoTooltip>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
@@ -532,10 +484,9 @@ const FinancialCharts = ({ stock, chartType = "all" }) => {
     <Card className="bg-slate-800 border border-slate-700">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg sm:text-xl font-bold text-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <ChartInfoTooltip 
-            title={`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
-            explanation="This chart shows quarterly earnings per share (EPS) trend. EPS indicates company profitability per outstanding share. Rising EPS suggests improving profitability."
-          />
+          <InfoTooltip explanation={metricGlossary.eps_trend.long}>
+            {`${stock?.ticker || stock?.name || 'Stock'} Earnings`}
+          </InfoTooltip>
           {latestEps && (
             <div className="flex items-center gap-2 text-sm text-slate-400">
               <span>Latest: <span className="text-emerald-400 font-semibold">${latestEps.eps?.toFixed(2)}</span> ({latestEps.period})</span>

@@ -280,3 +280,103 @@ export async function generateSingleStockAnalysis(stock) {
       : `${stock.ticker} requires more data for a complete analysis.`
   };
 }
+
+/**
+ * "Explain This Stock" – plain-English AI summary for a single stock.
+ * Uses OpenAI when available, falls back to rule-based analysis.
+ */
+export async function generateStockExplanation(stock) {
+  console.log('[AI Analysis] Generating explanation for', stock.ticker);
+
+  const debtToEquity = (stock.total_debt && stock.shareholder_equity && parseFloat(stock.shareholder_equity) > 0)
+    ? (parseFloat(stock.total_debt) / parseFloat(stock.shareholder_equity)).toFixed(2)
+    : null;
+
+  const prompt = `You are a friendly financial educator helping a retail dividend investor understand a stock in plain English.
+
+Analyze this stock and provide a concise, beginner-friendly summary:
+
+Ticker: ${stock.ticker}
+Company: ${stock.name || 'N/A'}
+Sector: ${stock.sector || 'N/A'}
+Current Price: ${stock.price ? '$' + stock.price : 'N/A'}
+Dividend Yield: ${stock.dividend_yield ? stock.dividend_yield + '%' : 'N/A'}
+Payout Ratio: ${stock.payout_ratio ? stock.payout_ratio + '%' : 'N/A'}
+Consecutive Dividend Years: ${stock.dividend_years || 'N/A'}
+5-Year Dividend Growth: ${stock.avg_div_growth_5y ? stock.avg_div_growth_5y + '%' : 'N/A'}
+Chowder Number: ${stock.chowder || (stock.dividend_yield && stock.avg_div_growth_5y ? (parseFloat(stock.dividend_yield) + parseFloat(stock.avg_div_growth_5y)).toFixed(1) : 'N/A')}
+P/E Ratio: ${stock.pe_ratio || 'N/A'}
+EPS: ${stock.eps ? '$' + stock.eps : 'N/A'}
+ROE: ${stock.roe ? stock.roe + '%' : 'N/A'}
+Beta: ${stock.beta || 'N/A'}
+Debt/Equity: ${debtToEquity || 'N/A'}
+Market Cap: ${stock.market_cap ? stock.market_cap + 'M' : 'N/A'}
+Credit Rating: ${stock.credit_rating || 'N/A'}
+5-Year Total Return: ${stock.five_year_total_return ? stock.five_year_total_return + '%' : 'N/A'}
+
+Provide your analysis covering:
+1. A 2-3 sentence "elevator pitch" summary explaining what this company does and whether it looks attractive for dividend investors.
+2. A verdict: "Buy", "Hold", or "Watch" (Watch = not ready yet but worth monitoring).
+3. 2-4 key strengths (short bullet points).
+4. 1-3 key risks (short bullet points).
+5. A 1-2 sentence dividend outlook on whether the dividend looks sustainable and likely to grow.
+
+Be honest and balanced. If data is missing, note that but still give your best assessment.`;
+
+  const responseSchema = {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+      verdict: { type: "string", enum: ["Buy", "Hold", "Watch"] },
+      key_strengths: { type: "array", items: { type: "string" } },
+      key_risks: { type: "array", items: { type: "string" } },
+      dividend_outlook: { type: "string" }
+    },
+    required: ["summary", "verdict", "key_strengths", "key_risks", "dividend_outlook"]
+  };
+
+  if (hasOpenAIKey()) {
+    try {
+      const result = await callOpenAI(prompt, responseSchema);
+      console.log('[AI Analysis] Explanation received from OpenAI');
+      return result;
+    } catch (error) {
+      console.warn('[AI Analysis] OpenAI failed for explanation, falling back:', error.message);
+    }
+  }
+
+  // Rule-based fallback
+  const { score, strengths, weaknesses, riskLevel } = scoreStock(stock);
+
+  const verdictMap = { Low: 'Buy', Medium: 'Hold', High: 'Watch' };
+  const verdict = verdictMap[riskLevel] || 'Hold';
+
+  const dividendYield = parseFloat(stock.dividend_yield) || 0;
+  const payoutRatio = parseFloat(stock.payout_ratio) || 0;
+  const dividendYears = parseInt(stock.dividend_years) || 0;
+
+  let dividendOutlook = `${stock.ticker}'s dividend `;
+  if (dividendYears >= 10 && payoutRatio <= 70) {
+    dividendOutlook += `looks well-supported with ${dividendYears} years of history and a ${payoutRatio.toFixed(0)}% payout ratio, leaving room for future increases.`;
+  } else if (payoutRatio > 80) {
+    dividendOutlook += `pays ${dividendYield.toFixed(1)}% but the ${payoutRatio.toFixed(0)}% payout ratio is high, which could limit growth or signal sustainability risk.`;
+  } else {
+    dividendOutlook += `yields ${dividendYield.toFixed(1)}%. ` + (dividendYears > 0
+      ? `With ${dividendYears} years of payments, it has a track record but investors should monitor payout sustainability.`
+      : `Limited dividend history makes it harder to assess long-term reliability.`);
+  }
+
+  const summary = `${stock.ticker}${stock.name ? ` (${stock.name})` : ''} scores ${score}/100 in our dividend analysis. ` +
+    (strengths.length > 0
+      ? `Key positives include ${strengths[0].toLowerCase()}. `
+      : '') +
+    `Overall, the stock presents a ${riskLevel.toLowerCase()}-risk profile for dividend investors.`;
+
+  return {
+    summary,
+    verdict,
+    key_strengths: strengths.length > 0 ? strengths.slice(0, 4) : ['Insufficient data for detailed strength assessment'],
+    key_risks: weaknesses.length > 0 ? weaknesses.slice(0, 3) : ['More data needed for complete risk evaluation'],
+    dividend_outlook: dividendOutlook,
+  };
+}

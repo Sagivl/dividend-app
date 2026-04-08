@@ -154,6 +154,16 @@ export const Stock = {
     return data || [];
   },
 
+  async listByTickers(tickers) {
+    if (!tickers || tickers.length === 0) return [];
+    const { data, error } = await supabase
+      .from('stocks')
+      .select(this.LIST_COLUMNS)
+      .in('ticker', tickers);
+    if (error) throw error;
+    return data || [];
+  },
+
   async filter(criteria, { fullColumns = false } = {}) {
     let query = supabase.from('stocks').select(fullColumns ? '*' : this.LIST_COLUMNS);
 

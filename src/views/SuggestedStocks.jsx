@@ -67,6 +67,7 @@ import { createPageUrl } from "@/utils";
 import FilterSelectComponent from "../components/FilterSelectComponent";
 import MarketCapDisplay from "../components/MarketCapDisplay";
 import { LoadingState } from "@/components/layout";
+import { getMetricHealth, healthBadgeClasses } from "@/config/metricHealthConfig";
 
 export default function SuggestedStocks() {
   const [allStocks, setAllStocks] = useState([]);
@@ -76,81 +77,65 @@ export default function SuggestedStocks() {
 
   useEffect(() => {
     const init = async () => {
-      setIsLoading(true); 
+      setIsLoading(true);
       try {
-        const user = await User.me();
-        setCurrentUserEmail(user.email);
-      } catch (error) {
-        console.error("Error fetching current user:", error);
-        setCurrentUserEmail(""); 
-        setIsLoading(false); 
-        setAllStocks([]);
-      }
-    };
-    init();
-  }, []);
+        const [user, watchlistItems] = await Promise.all([
+          User.me(),
+          Watchlist.list(),
+        ]);
 
-  useEffect(() => {
-    if (currentUserEmail) { 
-      loadStocks();
-    } else if (currentUserEmail === "") { 
-        setIsLoading(false);
-        setAllStocks([]);
-    }
-  }, [currentUserEmail]); 
-
-  const loadStocks = async () => {
-    if (!currentUserEmail) { 
-      setIsLoading(false);
-      setAllStocks([]);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const watchlistItems = await Watchlist.list();
-      const watchlistTickers = watchlistItems.map(item => item.ticker.toUpperCase());
-      
-      if (watchlistTickers.length === 0) {
-        setAllStocks([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      const fetchedStocks = await Stock.list();
-      const watchlistedStocks = fetchedStocks.filter(stock => 
-        stock.ticker && watchlistTickers.includes(stock.ticker.toUpperCase())
-      );
-
-      const uniqueStocksByTicker = [];
-      const seenTickers = new Set();
-
-      watchlistedStocks.sort((a, b) => {
-        if (a.ticker < b.ticker) return -1;
-        if (a.ticker > b.ticker) return 1;
-        const dateA = a.updated_date ? new Date(a.updated_date) : new Date(0);
-        const dateB = b.updated_date ? new Date(b.updated_date) : new Date(0);
-        return dateB - dateA; 
-      });
-
-      for (const stock of watchlistedStocks) {
-        if (stock.ticker && !seenTickers.has(stock.ticker.toUpperCase())) { 
-          uniqueStocksByTicker.push(stock);
-          seenTickers.add(stock.ticker.toUpperCase()); 
+        if (!user?.email) {
+          setCurrentUserEmail("");
+          setAllStocks([]);
+          setIsLoading(false);
+          return;
         }
-      }
-      uniqueStocksByTicker.sort((a,b) => {
+
+        setCurrentUserEmail(user.email);
+
+        const watchlistTickers = watchlistItems.map(item => item.ticker.toUpperCase());
+        if (watchlistTickers.length === 0) {
+          setAllStocks([]);
+          setIsLoading(false);
+          return;
+        }
+
+        const fetchedStocks = await Stock.listByTickers(watchlistTickers);
+
+        const uniqueStocksByTicker = [];
+        const seenTickers = new Set();
+
+        fetchedStocks.sort((a, b) => {
+          if (a.ticker < b.ticker) return -1;
+          if (a.ticker > b.ticker) return 1;
+          const dateA = a.updated_date ? new Date(a.updated_date) : new Date(0);
+          const dateB = b.updated_date ? new Date(b.updated_date) : new Date(0);
+          return dateB - dateA;
+        });
+
+        for (const stock of fetchedStocks) {
+          if (stock.ticker && !seenTickers.has(stock.ticker.toUpperCase())) {
+            uniqueStocksByTicker.push(stock);
+            seenTickers.add(stock.ticker.toUpperCase());
+          }
+        }
+
+        uniqueStocksByTicker.sort((a, b) => {
           const dateA = a.last_updated ? new Date(a.last_updated) : (a.updated_date ? new Date(a.updated_date) : new Date(0));
           const dateB = b.last_updated ? new Date(b.last_updated) : (b.updated_date ? new Date(b.updated_date) : new Date(0));
           return dateB - dateA;
-      });
+        });
 
-      setAllStocks(uniqueStocksByTicker || []);
-    } catch (error) {
-      console.error("Error loading stocks:", error);
-      setAllStocks([]);
-    }
-    setIsLoading(false);
-  };
+        setAllStocks(uniqueStocksByTicker);
+      } catch (error) {
+        console.error("Error loading stocks:", error);
+        setCurrentUserEmail("");
+        setAllStocks([]);
+      }
+      setIsLoading(false);
+    };
+    init();
+  }, []);
 
   const dividendStocks = allStocks.filter(stock => 
     stock.dividend_yield && 
@@ -181,8 +166,8 @@ export default function SuggestedStocks() {
     { value: "premium", label: "Premium", count: premiumStocks.length, icon: Crown, description: "ROE ≥ 15% AND Chowder > 10.5", data: premiumStocks, emptyMessage: "No stocks meeting premium criteria found in your watchlist." },
   ];
 
-  const handleRemoveFromWatchlist = () => {
-    loadStocks();
+  const handleRemoveFromWatchlist = (ticker) => {
+    setAllStocks(prev => prev.filter(s => s.ticker?.toUpperCase() !== ticker?.toUpperCase()));
   };
 
   const StockCard = ({ stock, isPremium = false }) => {
@@ -191,9 +176,9 @@ export default function SuggestedStocks() {
     const chowderNumber = stock.dividend_yield && stock.avg_div_growth_5y ? 
       parseFloat(stock.dividend_yield) + parseFloat(stock.avg_div_growth_5y) : null;
 
-    const isGoodROE = roe !== null && roe >= 15; 
-    const isGoodChowder = chowderNumber !== null && chowderNumber > 10.5;
-    const fixedDividendYieldMin = 2; 
+    const yieldHealth = getMetricHealth("dividend_yield", dividendYield);
+    const roeHealth = getMetricHealth("roe", roe);
+    const chowderHealth = getMetricHealth("chowder", chowderNumber);
 
     return (
       <Card className={`bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-200 hover:shadow-lg transition-shadow duration-300 flex flex-col ${isPremium ? "ring-1 ring-amber-400" : ""}`}>
@@ -207,7 +192,8 @@ export default function SuggestedStocks() {
                 <WatchlistButton 
                   ticker={stock.ticker} 
                   size="sm" 
-                  onToggle={(result) => !result.added && handleRemoveFromWatchlist()}
+                  initialIsInWatchlist={true}
+                  onToggle={(result) => !result.added && handleRemoveFromWatchlist(result.ticker)}
                 />
                 {isPremium && <Crown className="h-4 md:h-5 w-4 md:w-5 text-yellow-500 flex-shrink-0" />}
               </div>
@@ -235,23 +221,23 @@ export default function SuggestedStocks() {
           <div className="space-y-1.5 text-xs sm:text-sm mb-3 md:mb-4 flex-grow">
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Yield:</span>
-              <Badge variant={dividendYield && dividendYield >= fixedDividendYieldMin ? "default" : "outline"} className={`${dividendYield && dividendYield >= fixedDividendYieldMin ? 'bg-green-700/20 text-green-300 border-green-600' : 'bg-slate-700 text-slate-400 border-slate-600'} px-1.5 py-0.5 text-[10px] md:text-xs font-normal`}>
+              <Badge variant={yieldHealth?.status === "good" ? "default" : "outline"} className={`${yieldHealth ? healthBadgeClasses(yieldHealth.color) : "bg-slate-700 text-slate-400 border-slate-600"} px-1.5 py-0.5 text-[10px] md:text-xs font-normal`}>
                 {dividendYield ? `${dividendYield.toFixed(2)}%` : "N/A"}
-                {dividendYield && dividendYield >= fixedDividendYieldMin && <CheckCircle className="h-2.5 md:h-3 w-2.5 md:w-3 inline ml-0.5" />}
+                {yieldHealth?.status === "good" && <CheckCircle className="h-2.5 md:h-3 w-2.5 md:w-3 inline ml-0.5" />}
               </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-400">ROE:</span>
-              <Badge variant={isGoodROE ? "default" : "outline"} className={`${roe !== null ? (isGoodROE ? "bg-green-700/20 text-green-300 border-green-600" : "bg-orange-700/20 text-orange-300 border-orange-600") : "bg-slate-700 text-slate-400 border-slate-600"} px-1.5 py-0.5 text-[10px] md:text-xs font-normal`}>
+              <Badge variant={roeHealth?.status === "good" ? "default" : "outline"} className={`${roeHealth ? healthBadgeClasses(roeHealth.color) : "bg-slate-700 text-slate-400 border-slate-600"} px-1.5 py-0.5 text-[10px] md:text-xs font-normal`}>
                 {roe ? `${roe.toFixed(1)}%` : "N/A"}
-                {isGoodROE && <CheckCircle className="h-2.5 md:h-3 w-2.5 md:w-3 inline ml-0.5" />}
+                {roeHealth?.status === "good" && <CheckCircle className="h-2.5 md:h-3 w-2.5 md:w-3 inline ml-0.5" />}
               </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Chowder:</span>
-               <Badge variant={isGoodChowder ? "default" : "outline"} className={`${chowderNumber !== null ? (isGoodChowder ? "bg-green-700/20 text-green-300 border-green-600" : "bg-orange-700/20 text-orange-300 border-orange-600") : "bg-slate-700 text-slate-400 border-slate-600"} px-1.5 py-0.5 text-[10px] md:text-xs font-normal`}>
+              <Badge variant={chowderHealth?.status === "good" ? "default" : "outline"} className={`${chowderHealth ? healthBadgeClasses(chowderHealth.color) : "bg-slate-700 text-slate-400 border-slate-600"} px-1.5 py-0.5 text-[10px] md:text-xs font-normal`}>
                 {chowderNumber ? chowderNumber.toFixed(1) : "N/A"}
-                {isGoodChowder && <CheckCircle className="h-2.5 md:h-3 w-2.5 md:w-3 inline ml-0.5" />}
+                {chowderHealth?.status === "good" && <CheckCircle className="h-2.5 md:h-3 w-2.5 md:w-3 inline ml-0.5" />}
               </Badge>
             </div>
             {stock.sector && (

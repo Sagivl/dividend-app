@@ -14,10 +14,7 @@ import {
 } from '@/components/ui/table';
 import {
   RefreshCw,
-  TrendingUp,
-  TrendingDown,
   DollarSign,
-  ShoppingCart,
   Loader2,
   AlertCircle,
   Wallet,
@@ -164,6 +161,20 @@ export default function EtoroPortfolioTab({ stocksMap = {} }) {
     if (stock?.ticker) return stock.ticker;
     if (resolvedSymbols[position.instrumentId]) return resolvedSymbols[position.instrumentId];
     return position.ticker || null;
+  };
+
+  const handleBuy = (position) => {
+    const stock = getStockForPosition(position);
+    const ticker = getTickerForPosition(position);
+    setTradeDialog({
+      mode: 'buy',
+      instrumentId: position.instrumentId,
+      ticker: ticker || `ID:${position.instrumentId}`,
+      name: stock?.name || '',
+      currentPrice: position.currentRate || stock?.price || null,
+      logo: stock?.logo50x50 || null,
+      isOpen: stock?.isCurrentlyTradable !== false,
+    });
   };
 
   const handleSell = (position) => {
@@ -364,15 +375,23 @@ export default function EtoroPortfolioTab({ stocksMap = {} }) {
                               </div>
                             </div>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSell(pos)}
-                            className="gap-1 text-red-400 border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
-                          >
-                            <TrendingDown className="h-3.5 w-3.5" />
-                            Sell
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              onClick={() => handleBuy(pos)}
+                              className="bg-[#3FB923] hover:bg-green-600 text-white font-semibold px-3 shadow-sm"
+                            >
+                              Buy
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSell(pos)}
+                              className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 font-semibold px-3"
+                            >
+                              Sell
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -492,15 +511,23 @@ export default function EtoroPortfolioTab({ stocksMap = {} }) {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleSell(pos)}
-                              className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                            >
-                              <TrendingDown className="h-3.5 w-3.5" />
-                              Sell
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                onClick={() => handleBuy(pos)}
+                                className="h-8 bg-[#3FB923] hover:bg-green-600 text-white font-semibold px-3 shadow-sm"
+                              >
+                                Buy
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSell(pos)}
+                                className="h-8 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 font-semibold px-3"
+                              >
+                                Sell
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );

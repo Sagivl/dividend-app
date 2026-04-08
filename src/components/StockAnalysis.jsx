@@ -1,21 +1,21 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  AlertTriangle, CheckCircle, Info, AlertCircle as LucideAlertCircle,
-  TrendingUp, Clock, Scale, Calendar, CalendarCheck
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
+  Info, AlertCircle as LucideAlertCircle,
+  TrendingUp, Clock, Scale, Calendar, CalendarCheck,
+  Sparkles, Loader2, Check, X, ChevronDown, ChevronUp
+} from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import NewsSentiment from "./NewsSentiment";
 import AnalystRecommendations from "./AnalystRecommendations";
 import FinancialCharts from "./FinancialCharts";
 import StockLogo from "./StockLogo";
 import WatchlistButton from "./WatchlistButton";
+import MetricHealthBadge from "./MetricHealthBadge";
+import { getMetricHealth, healthTextClass, metricGlossary } from "@/config/metricHealthConfig";
+import { generateStockExplanation } from "@/functions/aiAnalysis";
 
 const formatDividendDate = (dateStr) => {
   if (!dateStr) return null;
@@ -29,58 +29,65 @@ const formatDividendDate = (dateStr) => {
   }
 };
 
-// InfoTooltip component (reusable) - supports both hover (desktop) and click (mobile)
-const InfoTooltip = ({ explanation }) => {
-  const [open, setOpen] = React.useState(false);
-
-  const handleOpenChange = (newOpen) => {
-    // Only use Radix's open/close for hover-capable devices (desktop)
-    // On touch devices, we control state via onClick only to avoid double-toggle
-    if (window.matchMedia('(hover: hover)').matches) {
-      setOpen(newOpen);
-    }
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setOpen((prev) => !prev);
-            }}
-            className="inline-flex items-center justify-center ml-1.5 p-1 rounded-full hover:bg-slate-600/50 transition-colors touch-manipulation"
-            style={{ minWidth: '24px', minHeight: '24px' }}
-          >
-            <Info className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-help" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent
-          side="top"
-          align="center"
-          className="max-w-xs text-sm p-2.5 bg-slate-700 border border-slate-600 shadow-md rounded-md z-50 text-slate-200"
-          onPointerDownOutside={() => setOpen(false)}
-          sideOffset={5}
-          collisionPadding={10}
-        >
-          <p>{explanation}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+const parseDividendDate = (dateStr) => {
+  if (!dateStr) return null;
+  try {
+    const cleanDate = dateStr.split('T')[0];
+    const date = new Date(cleanDate + 'T12:00:00');
+    return isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
 };
 
-// New MarketCapDisplay component for consistent formatting and tooltip inclusion
+const getFrequencyMonths = (sequence) => {
+  if (!sequence) return null;
+  const s = sequence.toLowerCase();
+  if (s.includes('month')) return 1;
+  if (s.includes('quarter')) return 3;
+  if (s.includes('semi')) return 6;
+  if (s.includes('annual') || s.includes('year')) return 12;
+  return null;
+};
+
+const getNextDividendDates = (exDateStr, payDateStr, sequence) => {
+  const payDate = parseDividendDate(payDateStr);
+  const exDate = parseDividendDate(exDateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (!payDate || payDate >= today) {
+    return { exDate: exDateStr, payDate: payDateStr, isEstimated: false };
+  }
+
+  const months = getFrequencyMonths(sequence);
+  if (!months) {
+    return { exDate: exDateStr, payDate: payDateStr, isEstimated: false };
+  }
+
+  let nextPay = new Date(payDate);
+  let nextEx = exDate ? new Date(exDate) : null;
+  while (nextPay < today) {
+    nextPay.setMonth(nextPay.getMonth() + months);
+    if (nextEx) nextEx.setMonth(nextEx.getMonth() + months);
+  }
+
+  const toIso = (d) => d.toISOString().split('T')[0];
+  return {
+    exDate: nextEx ? toIso(nextEx) : exDateStr,
+    payDate: toIso(nextPay),
+    isEstimated: true,
+  };
+};
+
+// MarketCapDisplay component for consistent formatting and tooltip inclusion
 const MarketCapDisplay = ({ value, className, currency = "USD", showTooltip = false }) => {
   if (value === null || value === undefined || value === "" || value === 0) {
     return (
       <span className={className}>
         N/A
         {showTooltip && (
-          <InfoTooltip explanation="Total market value of a company's outstanding shares (Current Share Price x Total Shares Outstanding). Indicates company size." />
+          <InfoTooltip explanation={metricGlossary.market_cap.long} />
         )}
       </span>
     );
@@ -98,7 +105,7 @@ const MarketCapDisplay = ({ value, className, currency = "USD", showTooltip = fa
       <span className={className}>
         N/A
         {showTooltip && (
-          <InfoTooltip explanation="Total market value of a company's outstanding shares (Current Share Price x Total Shares Outstanding). Indicates company size." />
+          <InfoTooltip explanation={metricGlossary.market_cap.long} />
         )}
       </span>
     );
@@ -112,7 +119,6 @@ const MarketCapDisplay = ({ value, className, currency = "USD", showTooltip = fa
   } else if (Math.abs(num) >= 1.0e+6) { // Millions
     formattedValue = `${(num / 1.0e+6).toFixed(0)}M`;
   } else {
-    // Less than a million
     formattedValue = num.toLocaleString();
   }
 
@@ -120,7 +126,7 @@ const MarketCapDisplay = ({ value, className, currency = "USD", showTooltip = fa
     <span className={`inline-flex items-center ${className}`}>
       {currency === "USD" ? `$${formattedValue}` : formattedValue}
       {showTooltip && (
-        <InfoTooltip explanation="Total market value of a company's outstanding shares (Current Share Price x Total Shares Outstanding). Indicates company size." />
+        <InfoTooltip explanation={metricGlossary.market_cap.long} />
       )}
     </span>
   );
@@ -173,7 +179,34 @@ const AnalysisCardPlaceholder = ({ cardTitle, missingFields }) => (
   </Card>
 );
 
+const verdictConfig = {
+  Buy:   { color: "bg-green-900/50 text-green-300 border-green-700" },
+  Hold:  { color: "bg-amber-900/50 text-amber-300 border-amber-700" },
+  Watch: { color: "bg-blue-900/50 text-blue-300 border-blue-700" },
+};
+
 const StockAnalysis = ({ stock }) => {
+  const [aiExplanation, setAiExplanation] = useState(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+
+  const handleExplainStock = useCallback(async () => {
+    if (aiExplanation) {
+      setShowExplanation((v) => !v);
+      return;
+    }
+    setIsExplaining(true);
+    setShowExplanation(true);
+    try {
+      const result = await generateStockExplanation(stock);
+      setAiExplanation(result);
+    } catch (err) {
+      console.error("[Explain] failed:", err);
+    } finally {
+      setIsExplaining(false);
+    }
+  }, [stock, aiExplanation]);
+
   // Helper function to check if a field has a valid value
   const hasValue = (field) => {
     if (!stock) return false;
@@ -234,29 +267,7 @@ const StockAnalysis = ({ stock }) => {
     return chowder;
   }, [stock?.dividend_yield, stock?.avg_div_growth_5y, cleanedDivGrowth5y]);
 
-  const isGoodChowder = useMemo(() => chowderNumber !== null ? chowderNumber > 10.5 : null, [chowderNumber]);
-  const getChowderColorClass = useMemo(() => isGoodChowder === null ? "text-amber-400" : (isGoodChowder ? "text-green-400" : "text-red-400"), [isGoodChowder]);
-
   const payoutRatioValue = useMemo(() => stock?.payout_ratio ? parseFloat(stock.payout_ratio) : null, [stock?.payout_ratio]);
-  const payoutRatioStatus = useMemo(() => {
-    if (payoutRatioValue === null) return null;
-    if (payoutRatioValue < 60) return "good";
-    if (payoutRatioValue <= 80) return "moderate";
-    return "high";
-  }, [payoutRatioValue]);
-  const getPayoutRatioColorClass = useMemo(() => {
-    if (payoutRatioStatus === null) return "text-slate-400";
-    if (payoutRatioStatus === "good") return "text-green-400";
-    if (payoutRatioStatus === "moderate") return "text-amber-400";
-    return "text-red-400";
-  }, [payoutRatioStatus]);
-
-  const isGoodROE = useMemo(() => {
-    if (!stock) return null;
-    return hasValue('roe') ? parseFloat(stock.roe) >= 15 : null;
-  }, [stock?.roe]);
-  
-  const getROEColorClass = useMemo(() => isGoodROE === null ? "text-amber-400" : (isGoodROE ? "text-green-400" : "text-red-400"), [isGoodROE]);
 
   const debtToEquityRatio = useMemo(() => {
     if (!stock) return null;
@@ -264,38 +275,28 @@ const StockAnalysis = ({ stock }) => {
       const totalDebt = parseFloat(stock.total_debt);
       const shareholderEquity = parseFloat(stock.shareholder_equity);
 
-      if (isNaN(totalDebt) || isNaN(shareholderEquity)) {
-        return null;
-      }
-
-      if (shareholderEquity <= 0) {
-        return "N/A";
-      }
+      if (isNaN(totalDebt) || isNaN(shareholderEquity)) return null;
+      if (shareholderEquity <= 0) return "N/A";
 
       const ratio = totalDebt / shareholderEquity;
-
-      if (ratio > 999) {
-        return "999+";
-      }
+      if (ratio > 999) return "999+";
 
       return ratio.toFixed(2);
     }
     return null;
   }, [stock?.total_debt, stock?.shareholder_equity]);
 
-  const getDebtToEquityColorClass = useMemo(() => {
-    if (debtToEquityRatio === null || debtToEquityRatio === "N/A" || debtToEquityRatio === "999+") {
-      return "text-amber-400";
-    }
-
-    const ratio = parseFloat(debtToEquityRatio);
-    if (isNaN(ratio)) return "text-amber-400";
-
-    if (ratio < 0.5) return "text-green-400";
-    if (ratio < 1) return "text-lime-400";
-    if (ratio < 2) return "text-yellow-400";
-    return "text-red-400";
+  const chowderHealth = useMemo(() => getMetricHealth("chowder", chowderNumber), [chowderNumber]);
+  const payoutHealth = useMemo(() => getMetricHealth("payout_ratio", payoutRatioValue), [payoutRatioValue]);
+  const roeHealth = useMemo(() => getMetricHealth("roe", stock?.roe), [stock?.roe]);
+  const debtHealth = useMemo(() => {
+    if (debtToEquityRatio === null || debtToEquityRatio === "N/A" || debtToEquityRatio === "999+") return null;
+    return getMetricHealth("debt_to_equity", debtToEquityRatio);
   }, [debtToEquityRatio]);
+  const yieldHealth = useMemo(() => getMetricHealth("dividend_yield", stock?.dividend_yield), [stock?.dividend_yield]);
+  const growthHealth = useMemo(() => getMetricHealth("avg_div_growth_5y", cleanedDivGrowth5y), [cleanedDivGrowth5y]);
+  const peHealth = useMemo(() => getMetricHealth("pe_ratio", stock?.pe_ratio), [stock?.pe_ratio]);
+  const betaHealth = useMemo(() => getMetricHealth("beta", stock?.beta), [stock?.beta]);
 
   // Check for new data availability
   const hasNewsSentimentData = useMemo(() => {
@@ -328,8 +329,87 @@ const StockAnalysis = ({ stock }) => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Explain This Stock */}
+      <div className="flex justify-end mt-4 sm:mt-6">
+        <Button
+          onClick={handleExplainStock}
+          disabled={isExplaining}
+          variant="outline"
+          className="bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-colors"
+        >
+          {isExplaining ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="mr-2 h-4 w-4 text-amber-400" />
+          )}
+          {aiExplanation ? "Explain This Stock" : "Explain This Stock"}
+          {aiExplanation && (
+            showExplanation
+              ? <ChevronUp className="ml-2 h-4 w-4" />
+              : <ChevronDown className="ml-2 h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
+      {showExplanation && (
+        <Card className="bg-gradient-to-br from-slate-800 to-slate-800/80 border border-amber-700/30">
+          <CardContent className="pt-5 pb-5">
+            {isExplaining ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+                <p className="text-sm text-slate-400">Analyzing {stock.ticker}...</p>
+              </div>
+            ) : aiExplanation ? (
+              <div className="space-y-4">
+                {/* Summary + Verdict */}
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                  <Badge className={`shrink-0 text-sm px-3 py-1 border ${verdictConfig[aiExplanation.verdict]?.color || "bg-slate-700 text-slate-300 border-slate-600"}`}>
+                    {aiExplanation.verdict}
+                  </Badge>
+                  <p className="text-sm text-slate-300 leading-relaxed">{aiExplanation.summary}</p>
+                </div>
+
+                {/* Strengths & Risks */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <h5 className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">Strengths</h5>
+                    <ul className="space-y-1.5">
+                      {aiExplanation.key_strengths?.map((s, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                          <Check className="h-3.5 w-3.5 text-green-400 mt-0.5 shrink-0" />
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-2">Risks</h5>
+                    <ul className="space-y-1.5">
+                      {aiExplanation.key_risks?.map((r, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                          <X className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Dividend Outlook */}
+                {aiExplanation.dividend_outlook && (
+                  <div className="pt-3 border-t border-slate-700">
+                    <h5 className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-1.5">Dividend Outlook</h5>
+                    <p className="text-sm text-slate-300">{aiExplanation.dividend_outlook}</p>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Main Analysis Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 mt-4 sm:mt-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         {/* First column */}
         <div className="space-y-4 sm:space-y-6">
           {/* Price Analysis Card */}
@@ -365,7 +445,7 @@ const StockAnalysis = ({ stock }) => {
                     <div className="text-left flex-1">
                       <div className="text-xs text-slate-400 flex items-center mb-1">
                         52-Wk Low
-                        <InfoTooltip explanation="The lowest price the stock has traded at over the past 52 weeks." />
+                        <InfoTooltip explanation={metricGlossary.min_52w.long} />
                       </div>
                       <div className="text-sm sm:text-base font-semibold text-slate-200">
                         {stock.min_52w ? `$${parseFloat(stock.min_52w).toFixed(2)}` : "N/A"}
@@ -374,7 +454,7 @@ const StockAnalysis = ({ stock }) => {
                     <div className="text-center flex-1 px-2">
                       <div className="text-xs sm:text-sm text-slate-300 flex items-center justify-center mb-1">
                         Current Price
-                        <InfoTooltip explanation="The most recent trading price of the stock." />
+                        <InfoTooltip explanation={metricGlossary.price.long} />
                       </div>
                       <div className="text-lg sm:text-xl lg:text-2xl font-bold text-green-400">
                         {stock.price ? `$${parseFloat(stock.price).toFixed(2)}` : "N/A"}
@@ -383,7 +463,7 @@ const StockAnalysis = ({ stock }) => {
                     <div className="text-right flex-1">
                       <div className="text-xs text-slate-400 flex items-center justify-end mb-1">
                         52-Wk High
-                        <InfoTooltip explanation="The highest price the stock has traded at over the past 52 weeks." />
+                        <InfoTooltip explanation={metricGlossary.max_52w.long} />
                       </div>
                       <div className="text-sm sm:text-base font-semibold text-slate-200">
                         {stock.max_52w ? `$${parseFloat(stock.max_52w).toFixed(2)}` : "N/A"}
@@ -452,68 +532,46 @@ const StockAnalysis = ({ stock }) => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-700/50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-slate-300 flex items-center">
-                      Dividend Yield <InfoTooltip explanation="Annual dividend per share divided by the stock's current price, expressed as a percentage. Indicates the return from dividends relative to price." />
+                      Dividend Yield <InfoTooltip explanation={metricGlossary.dividend_yield.long} />
                     </div>
-                    <div className="text-xl font-bold text-green-400 mt-1">
+                    <div className={`text-xl font-bold ${yieldHealth ? healthTextClass(yieldHealth.color) : "text-slate-400"} mt-1`}>
                       {stock.dividend_yield ? `${parseFloat(stock.dividend_yield).toFixed(2)}%` : "N/A"}
                     </div>
+                    <MetricHealthBadge metricKey="dividend_yield" value={stock.dividend_yield} size="sm" />
                   </div>
                   <div className="bg-slate-700/50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-slate-300 flex items-center">
-                      5Y Growth Rate <InfoTooltip explanation="The average annual growth rate of the company's dividend payments over the past 5 years." />
+                      5Y Growth Rate <InfoTooltip explanation={metricGlossary.avg_div_growth_5y.long} />
                     </div>
-                    <div className="text-xl font-bold text-green-400 mt-1">
+                    <div className={`text-xl font-bold ${growthHealth ? healthTextClass(growthHealth.color) : "text-slate-400"} mt-1`}>
                       {cleanedDivGrowth5y !== null ? `${cleanedDivGrowth5y.toFixed(1)}%` : "N/A"}
                     </div>
+                    <MetricHealthBadge metricKey="avg_div_growth_5y" value={cleanedDivGrowth5y} size="sm" />
                   </div>
                   <div className="bg-slate-700/50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-slate-300 flex items-center">
-                      Chowder Number <InfoTooltip explanation="Calculated as Dividend Yield + 5-Year Dividend Growth Rate. A score above 10.5 is often considered good for dividend growth investors." />
+                      Chowder Number <InfoTooltip explanation={metricGlossary.chowder.long} />
                     </div>
-                    <div className="flex flex-col">
-                      <div className={`text-xl font-bold ${getChowderColorClass} flex items-center mt-1`}>
-                        {chowderNumber ? chowderNumber.toFixed(1) : "N/A"}
-                        {isGoodChowder !== null && <span className="ml-2">{isGoodChowder ? <CheckCircle className="h-5 w-5 text-green-400" /> : <AlertTriangle className="h-5 w-5 text-red-400" />}</span>}
-                      </div>
-                      {isGoodChowder !== null && (
-                        <Badge variant="outline" className={`mt-1 ${isGoodChowder ? "bg-green-900/50 text-green-300 border-green-700" : "bg-red-900/50 text-red-300 border-red-700"} inline-flex w-fit`}>
-                          {isGoodChowder ? "Good" : "Below Target"}
-                        </Badge>
-                      )}
+                    <div className={`text-xl font-bold ${chowderHealth ? healthTextClass(chowderHealth.color) : "text-amber-400"} mt-1`}>
+                      {chowderNumber ? chowderNumber.toFixed(1) : "N/A"}
                     </div>
+                    <MetricHealthBadge metricKey="chowder" value={chowderNumber} size="sm" />
                   </div>
                   <div className="bg-slate-700/50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-slate-300 flex items-center">
-                      Payout Ratio <InfoTooltip explanation="The percentage of a company's earnings paid out as dividends. A lower ratio (e.g., below 60-70%) may indicate more sustainable dividends and room for growth." />
+                      Payout Ratio <InfoTooltip explanation={metricGlossary.payout_ratio.long} />
                     </div>
-                    <div className="flex flex-col">
-                      <div className={`text-xl font-bold ${getPayoutRatioColorClass} flex items-center mt-1`}>
-                        {payoutRatioValue !== null ? `${payoutRatioValue.toFixed(1)}%` : "N/A"}
-                        {payoutRatioStatus !== null && (
-                          <span className="ml-2">
-                            {payoutRatioStatus === "good" ? <CheckCircle className="h-5 w-5 text-green-400" /> : 
-                             payoutRatioStatus === "high" ? <AlertTriangle className="h-5 w-5 text-red-400" /> : null}
-                          </span>
-                        )}
-                      </div>
-                      {payoutRatioStatus !== null && (
-                        <Badge variant="outline" className={`mt-1 text-xs ${
-                          payoutRatioStatus === "good" ? "bg-green-900/50 text-green-300 border-green-700" : 
-                          payoutRatioStatus === "moderate" ? "bg-amber-900/50 text-amber-300 border-amber-700" :
-                          "bg-red-900/50 text-red-300 border-red-700"
-                        } inline-flex w-fit`}>
-                          {payoutRatioStatus === "good" ? "Safe" : 
-                           payoutRatioStatus === "moderate" ? "Moderate" : "High"}
-                        </Badge>
-                      )}
+                    <div className={`text-xl font-bold ${payoutHealth ? healthTextClass(payoutHealth.color) : "text-slate-400"} mt-1`}>
+                      {payoutRatioValue !== null ? `${payoutRatioValue.toFixed(1)}%` : "N/A"}
                     </div>
+                    <MetricHealthBadge metricKey="payout_ratio" value={payoutRatioValue} size="sm" />
                   </div>
                 </div>
 
                 <div className="mt-5 pt-4 border-t border-slate-700">
                   <h4 className="text-md font-semibold text-slate-100 mb-3 flex items-center">
                     Dividend Payout History
-                    <InfoTooltip explanation="Information about the company's dividend payment consistency and growth." />
+                    <InfoTooltip explanation={metricGlossary.dividend_payout_history.long} />
                   </h4>
                   <div className="bg-slate-700/50 rounded-lg p-4">
                     <div className="mb-3">
@@ -539,28 +597,35 @@ const StockAnalysis = ({ stock }) => {
                           "Growth history not available."}
                       </p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-600">
-                      <div>
-                        <div className="flex items-center text-sm font-medium text-slate-200 mb-1.5">
-                          <Calendar className="h-4 w-4 mr-1.5 text-green-400" />
-                          <span className="font-semibold">Ex-Dividend Date:</span>
-                          <InfoTooltip explanation="The date when the stock begins trading without the dividend. You must own shares before this date to receive the upcoming dividend." />
+                    {(() => {
+                      const next = getNextDividendDates(stock.ex_date, stock.dividend_pay_date, stock.div_distribution_sequence);
+                      return (
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-600">
+                          <div>
+                            <div className="flex items-center text-sm font-medium text-slate-200 mb-1.5">
+                              <Calendar className="h-4 w-4 mr-1.5 text-green-400" />
+                              <span className="font-semibold">Ex-Dividend Date:</span>
+                              <InfoTooltip explanation={metricGlossary.ex_date.long} />
+                            </div>
+                            <p className="text-sm text-slate-300 ml-6">
+                              {hasValue('ex_date') ? formatDividendDate(next.exDate) : "Not available"}
+                              {next.isEstimated && <span className="text-xs text-amber-400 ml-1">(est.)</span>}
+                            </p>
+                          </div>
+                          <div>
+                            <div className="flex items-center text-sm font-medium text-slate-200 mb-1.5">
+                              <CalendarCheck className="h-4 w-4 mr-1.5 text-green-400" />
+                              <span className="font-semibold">Pay Date:</span>
+                              <InfoTooltip explanation={metricGlossary.dividend_pay_date.long} />
+                            </div>
+                            <p className="text-sm text-slate-300 ml-6">
+                              {hasValue('dividend_pay_date') ? formatDividendDate(next.payDate) : "Not available"}
+                              {next.isEstimated && <span className="text-xs text-amber-400 ml-1">(est.)</span>}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm text-slate-300 ml-6">
-                          {hasValue('ex_date') ? formatDividendDate(stock.ex_date) : "Not available"}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center text-sm font-medium text-slate-200 mb-1.5">
-                          <CalendarCheck className="h-4 w-4 mr-1.5 text-green-400" />
-                          <span className="font-semibold">Pay Date:</span>
-                          <InfoTooltip explanation="The date when the dividend is actually paid to shareholders who owned the stock before the ex-dividend date." />
-                        </div>
-                        <p className="text-sm text-slate-300 ml-6">
-                          {hasValue('dividend_pay_date') ? formatDividendDate(stock.dividend_pay_date) : "Not available"}
-                        </p>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </CardContent>
@@ -588,32 +653,26 @@ const StockAnalysis = ({ stock }) => {
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
                     ROE 
-                    <InfoTooltip explanation="Return on Equity. Measures a company's profitability by revealing how much profit a company generates with the money shareholders have invested (Net Income / Shareholder's Equity). A value of 15% or higher is generally considered good." />
+                    <InfoTooltip explanation={metricGlossary.roe.long} />
                   </div>
-                  <div className="flex flex-col">
-                    <div className={`text-xl font-bold ${getROEColorClass} flex items-center mt-1`}>
-                      {hasValue('roe') ? `${parseFloat(stock.roe).toFixed(1)}%` : "N/A"}
-                      {hasValue('roe') && isGoodROE !== null && <span className="ml-2">{isGoodROE ? <CheckCircle className="h-5 w-5 text-green-400" /> : <LucideAlertCircle className="h-5 w-5 text-red-400" />}</span>}
-                    </div>
-                    {hasValue('roe') && isGoodROE !== null && (
-                      <Badge variant="outline" className={`mt-1 ${isGoodROE ? "bg-green-900/50 text-green-300 border-green-700" : "bg-red-900/50 text-red-300 border-red-700"} inline-flex w-fit`}>
-                        {isGoodROE ? "Good" : "Below Target"}
-                      </Badge>
-                    )}
+                  <div className={`text-xl font-bold ${roeHealth ? healthTextClass(roeHealth.color) : "text-slate-400"} mt-1`}>
+                    {hasValue('roe') ? `${parseFloat(stock.roe).toFixed(1)}%` : "N/A"}
                   </div>
+                  <MetricHealthBadge metricKey="roe" value={stock.roe} size="sm" />
                 </div>
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
                     Beta 
-                    <InfoTooltip explanation="A measure of a stock's volatility in relation to the overall market (usually S&P 500). Beta < 1 means less volatile than market; Beta > 1 means more volatile." />
+                    <InfoTooltip explanation={metricGlossary.beta.long} />
                   </div>
-                  <div className="text-xl font-bold text-slate-200 mt-1">
+                  <div className={`text-xl font-bold ${betaHealth ? healthTextClass(betaHealth.color) : "text-slate-200"} mt-1`}>
                     {hasValue('beta') ? parseFloat(stock.beta).toFixed(2) : "N/A"}
                   </div>
+                  <MetricHealthBadge metricKey="beta" value={stock.beta} size="sm" />
                 </div>
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
-                    Credit Rating <InfoTooltip explanation="An assessment of a company's creditworthiness by rating agencies (e.g., S&P, Moody's). Higher ratings (e.g., AAA, AA) indicate lower risk of default." />
+                    Credit Rating <InfoTooltip explanation={metricGlossary.credit_rating.long} />
                   </div>
                   <div className="text-xl font-bold text-slate-200 mt-1 break-words">
                     {hasValue('credit_rating') ? stock.credit_rating : "N/A"}
@@ -622,7 +681,7 @@ const StockAnalysis = ({ stock }) => {
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
                     Market Cap
-                    <InfoTooltip explanation="Total market value of a company's outstanding shares (Current Share Price x Total Shares Outstanding). Indicates company size." />
+                    <InfoTooltip explanation={metricGlossary.market_cap.long} />
                   </div>
                   <div className="text-xl font-bold text-green-400 mt-1">
                     <MarketCapDisplay
@@ -636,13 +695,10 @@ const StockAnalysis = ({ stock }) => {
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
                     Debt/Equity <Scale className="h-4 w-4 text-slate-400 ml-1 mr-0.5"/> Ratio
-                    <InfoTooltip explanation="Total Debt / Shareholder Equity. A measure of financial leverage. Lower is generally better. Acceptable levels vary by industry." />
+                    <InfoTooltip explanation={metricGlossary.debt_to_equity.long} />
                   </div>
-                  <div className={`text-xl font-bold ${getDebtToEquityColorClass} mt-1 flex items-center`}>
+                  <div className={`text-xl font-bold ${debtHealth ? healthTextClass(debtHealth.color) : "text-amber-400"} mt-1`}>
                     {debtToEquityRatio !== null ? debtToEquityRatio : "N/A"}
-                    {debtToEquityRatio !== null && debtToEquityRatio !== "N/A" && debtToEquityRatio !== "999+" && parseFloat(debtToEquityRatio) < 0.5 && <CheckCircle className="h-5 w-5 text-green-400 ml-2" />}
-                    {debtToEquityRatio !== null && debtToEquityRatio !== "N/A" && debtToEquityRatio !== "999+" && parseFloat(debtToEquityRatio) >= 2 && <AlertTriangle className="h-5 w-5 text-red-400 ml-2" />}
-                    {debtToEquityRatio === "N/A" && <AlertTriangle className="h-5 w-5 text-amber-400 ml-2" />}
                   </div>
                   {debtToEquityRatio === "N/A" && (
                     <div className="text-xs text-amber-400 mt-1">
@@ -654,11 +710,12 @@ const StockAnalysis = ({ stock }) => {
                       Extremely high leverage
                     </div>
                   )}
+                  <MetricHealthBadge metricKey="debt_to_equity" value={debtToEquityRatio !== "N/A" && debtToEquityRatio !== "999+" ? debtToEquityRatio : null} size="sm" />
                 </div>
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
                     EBT
-                    <InfoTooltip explanation="Earnings Before Tax. Represents a company's profit before deducting corporate income tax expenses." />
+                    <InfoTooltip explanation={metricGlossary.ebt.long} />
                   </div>
                   <div className="text-xl font-bold text-green-400 mt-1">
                     <MarketCapDisplay
@@ -690,18 +747,19 @@ const StockAnalysis = ({ stock }) => {
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
                     P/E Ratio 
-                    <InfoTooltip explanation="Price-to-Earnings ratio (Current Share Price / Earnings Per Share). Indicates how much investors are willing to pay per dollar of earnings." />
+                    <InfoTooltip explanation={metricGlossary.pe_ratio.long} />
                   </div>
-                  <div className="text-xl font-bold text-green-400 mt-1">
+                  <div className={`text-xl font-bold ${peHealth ? healthTextClass(peHealth.color) : "text-slate-400"} mt-1`}>
                     {hasValue('pe_ratio') ? parseFloat(stock.pe_ratio).toFixed(2) : "N/A"}
                   </div>
+                  <MetricHealthBadge metricKey="pe_ratio" value={stock.pe_ratio} size="sm" />
                 </div>
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="flex items-center">
                     <span className="text-sm font-medium text-slate-300">
                       {hasValue('sector') && stock.sector ? `${stock.sector} Sector P/E` : "Sector P/E"}
                     </span>
-                    <InfoTooltip explanation="The average P/E ratio for companies in the same industry sector." />
+                    <InfoTooltip explanation={metricGlossary.sector_pe.long} />
                   </div>
                   <div className="text-xl font-bold text-slate-200 mt-1">
                     {hasValue('sector_pe') ? parseFloat(stock.sector_pe).toFixed(2) : "N/A"}
@@ -710,7 +768,7 @@ const StockAnalysis = ({ stock }) => {
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-slate-300 flex items-center">
                     EPS 
-                    <InfoTooltip explanation="Earnings Per Share (Net Income - Preferred Dividends / Average Outstanding Shares)." />
+                    <InfoTooltip explanation={metricGlossary.eps.long} />
                   </div>
                   <div className="text-xl font-bold text-green-400 mt-1">
                     {hasValue('eps') ? `$${parseFloat(stock.eps).toFixed(2)}` : "N/A"}
@@ -718,7 +776,7 @@ const StockAnalysis = ({ stock }) => {
                 </div>
                 <div className="bg-slate-700/50 p-3 rounded-lg">
                    <div className="text-sm font-medium text-slate-300 flex items-center">
-                    S&P 500 P/E <InfoTooltip explanation="The average P/E ratio of the S&P 500 index." />
+                    S&P 500 P/E <InfoTooltip explanation={metricGlossary.sp500_pe.long} />
                   </div>
                   <div className="text-xl font-bold text-slate-200 mt-1">
                     {hasValue('sp500_pe') ? parseFloat(stock.sp500_pe).toFixed(2) : "N/A"}

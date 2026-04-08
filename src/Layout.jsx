@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
-import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, BarChart2, Wallet, Settings } from "lucide-react";
+import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, BarChart2, Wallet, Settings, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,11 +14,26 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/lib/AuthContext";
 
 
 export default function Layout({ children, currentPageName }) {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [navItems, setNavItems] = useState([]);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   useEffect(() => {
     setNavItems([
@@ -149,6 +164,23 @@ export default function Layout({ children, currentPageName }) {
                   </DialogHeader>
                 </DialogContent>
               </Dialog>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="ml-1 text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-primary">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal text-xs text-muted-foreground truncate">
+                    {user?.email}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:text-red-400 cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
