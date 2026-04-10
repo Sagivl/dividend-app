@@ -11,6 +11,7 @@ import SuggestedAssets from "../components/SuggestedAssets";
 import OnboardingModal from "../components/OnboardingModal";
 import WatchlistButton from "../components/WatchlistButton";
 import BuyButton from "../components/trading/BuyButton";
+import StockLogo from "../components/StockLogo";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, PieChart, CheckCircle } from "lucide-react";
@@ -417,40 +418,59 @@ export default function Dashboard() {
                 urlParams.set("ticker", selectedStock.ticker);
               }
               urlParams.set("tab", newTab);
-              // Use Next.js router with replace for proper location sync
               router.replace(`${pathname}?${urlParams.toString()}`);
               window.scrollTo(0, 0);
             }}
             className="space-y-4"
           >
-            {/* Stock Header with Watchlist and Buy Buttons */}
-            {selectedStock.ticker && (
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <h2 className="text-lg sm:text-xl font-semibold text-slate-100">
-                  {selectedStock.ticker.toUpperCase()}
-                </h2>
-                <WatchlistButton ticker={selectedStock.ticker} size="md" />
-                <BuyButton stock={selectedStock} size="md" />
+            {/* Sticky Stock Header + Tabs */}
+            <div className="sticky top-12 sm:top-16 z-30 bg-slate-900/95 backdrop-blur-md -mx-3 sm:-mx-6 px-3 sm:px-6 pb-3 pt-3 border-b border-slate-700/50">
+              {selectedStock.ticker && (
+                <div className="flex items-center gap-3 mb-3">
+                  <StockLogo stock={selectedStock} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-base sm:text-lg font-bold text-slate-100 truncate">
+                        {selectedStock.ticker.toUpperCase()}
+                      </h2>
+                      {selectedStock.exchange && (
+                        <span className="text-xs text-slate-400 hidden sm:inline">({selectedStock.exchange})</span>
+                      )}
+                      <WatchlistButton ticker={selectedStock.ticker} size="sm" />
+                    </div>
+                    {selectedStock.name && (
+                      <p className="text-xs sm:text-sm text-slate-400 truncate">{selectedStock.name}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    {selectedStock.price && (
+                      <span className="text-lg sm:text-xl font-bold text-green-400">
+                        ${parseFloat(selectedStock.price).toFixed(2)}
+                      </span>
+                    )}
+                    <BuyButton stock={selectedStock} size="md" />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-center">
+                <TabsList className="bg-slate-800 rounded-lg flex w-full sm:w-auto border border-slate-700">
+                  <TabsTrigger 
+                    value="input" 
+                    className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+                  >
+                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>Stats</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="analysis" 
+                    className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+                  >
+                    <PieChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>Analysis</span>
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            )}
-            
-            <div className="flex justify-center">
-              <TabsList className="bg-slate-800 rounded-lg flex w-full sm:w-auto border border-slate-700">
-                <TabsTrigger 
-                  value="input" 
-                  className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
-                >
-                  <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Stats</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="analysis" 
-                  className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
-                >
-                  <PieChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Analysis</span>
-                </TabsTrigger>
-              </TabsList>
             </div>
             
             <TabsContent value="input">

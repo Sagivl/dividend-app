@@ -11,8 +11,6 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import NewsSentiment from "./NewsSentiment";
 import AnalystRecommendations from "./AnalystRecommendations";
 import FinancialCharts from "./FinancialCharts";
-import StockLogo from "./StockLogo";
-import WatchlistButton from "./WatchlistButton";
 import MetricHealthBadge from "./MetricHealthBadge";
 import { getMetricHealth, healthTextClass, metricGlossary } from "@/config/metricHealthConfig";
 import { generateStockExplanation } from "@/functions/aiAnalysis";
@@ -330,23 +328,24 @@ const StockAnalysis = ({ stock }) => {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Explain This Stock */}
-      <div className="flex justify-end mt-4 sm:mt-6">
+      <div className="flex justify-end">
         <Button
           onClick={handleExplainStock}
           disabled={isExplaining}
           variant="outline"
-          className="bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-colors"
+          size="sm"
+          className="bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-colors text-xs"
         >
           {isExplaining ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : (
-            <Sparkles className="mr-2 h-4 w-4 text-amber-400" />
+            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-400" />
           )}
-          {aiExplanation ? "Explain This Stock" : "Explain This Stock"}
+          Explain
           {aiExplanation && (
             showExplanation
-              ? <ChevronUp className="ml-2 h-4 w-4" />
-              : <ChevronDown className="ml-2 h-4 w-4" />
+              ? <ChevronUp className="ml-1 h-3.5 w-3.5" />
+              : <ChevronDown className="ml-1 h-3.5 w-3.5" />
           )}
         </Button>
       </div>
@@ -416,28 +415,7 @@ const StockAnalysis = ({ stock }) => {
           {hasPriceAnalysisData ? (
             <Card className="bg-slate-800 border border-slate-700">
               <CardHeader className="pb-2 sm:pb-3">
-                <div className="flex items-start gap-3">
-                  <StockLogo stock={stock} size="lg" />
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg sm:text-xl font-bold text-slate-100">Price Analysis</CardTitle>
-                    {hasValue('ticker') && (
-                      <div className="text-xs sm:text-sm text-slate-300 flex flex-col sm:flex-row sm:items-center mt-1 sm:mt-2 space-y-1 sm:space-y-0">
-                        <div className="flex items-center">
-                          <span className="font-semibold text-slate-100">{stock.ticker.toUpperCase()}</span>
-                          {hasValue('exchange') && (
-                            <span className="ml-1 text-slate-400">({stock.exchange})</span>
-                          )}
-                          <WatchlistButton ticker={stock.ticker} size="sm" className="ml-2" />
-                        </div>
-                        {hasValue('name') && (
-                          <span className="sm:ml-2 text-slate-300 font-normal line-clamp-1 break-words">
-                            {stock.name}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <CardTitle className="text-lg sm:text-xl font-bold text-slate-100">52-Week Range</CardTitle>
               </CardHeader>
               <CardContent className="pt-2 sm:pt-4">
                 <div className="bg-slate-700/50 p-3 sm:p-4 rounded-lg">
