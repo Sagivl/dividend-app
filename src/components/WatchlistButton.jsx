@@ -46,21 +46,31 @@ export default function WatchlistButton({
     
     if (!ticker || isLoading) return;
 
-    try {
-      const result = await Watchlist.toggle(ticker);
-      setIsInWatchlist(result.added);
-      
-      toast({
-        title: result.added ? 'Added to Watchlist' : 'Removed from Watchlist',
-        description: `${result.ticker} has been ${result.added ? 'added to' : 'removed from'} your watchlist.`,
-        duration: 2000,
-      });
+    const wasInWatchlist = isInWatchlist;
+    const normalizedTicker = ticker.toUpperCase().trim();
 
-      if (onToggle) {
-        onToggle(result);
+    setIsInWatchlist(!wasInWatchlist);
+
+    toast({
+      title: wasInWatchlist ? 'Removed from Watchlist' : 'Added to Watchlist',
+      description: `${normalizedTicker} has been ${wasInWatchlist ? 'removed from' : 'added to'} your watchlist.`,
+      variant: wasInWatchlist ? 'default' : 'success',
+      duration: 2000,
+    });
+
+    if (onToggle) {
+      onToggle({ added: !wasInWatchlist, ticker: normalizedTicker });
+    }
+
+    try {
+      if (wasInWatchlist) {
+        await Watchlist.remove(ticker);
+      } else {
+        await Watchlist.add(ticker);
       }
     } catch (error) {
       console.error('Error toggling watchlist:', error);
+      setIsInWatchlist(wasInWatchlist);
       toast({
         title: 'Error',
         description: 'Failed to update watchlist. Please try again.',

@@ -15,7 +15,7 @@ import { fetchHybridStockData } from "../functions/hybridDataFetcher";
 import { cancelOpenOrder, cancelLimitOrder, getTradingEnvironment } from "@/functions/etoroTradingApi";
 import { UserSettings } from "@/entities/UserSettings";
 import { etoroFetch } from "@/functions/etoroFetch";
-import { toast } from "react-hot-toast";
+import { toast } from "@/components/ui/use-toast";
 import { PageContainer, LoadingState } from "@/components/layout";
 import { Link2, ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -108,7 +108,7 @@ export default function PortfolioView() {
       setStocksMap(map);
     } catch (error) {
       console.error("Error loading portfolio data:", error);
-      toast.error("Failed to load portfolio");
+      toast({ title: "Failed to load portfolio", variant: "destructive", duration: 3000 });
     } finally {
       setIsLoading(false);
     }
@@ -465,9 +465,9 @@ export default function PortfolioView() {
       let stockData = stocksMap[data.ticker.toUpperCase()];
 
       if (!stockData) {
-        toast.loading(`Fetching data for ${data.ticker}...`, { id: 'fetch-stock' });
+        const fetchToast = toast({ title: `Fetching data for ${data.ticker}...`, duration: 30000 });
         const result = await fetchHybridStockData(data.ticker);
-        toast.dismiss('fetch-stock');
+        fetchToast.dismiss();
 
         if (result.success) {
           const newStock = await Stock.create(result.data);
@@ -490,10 +490,10 @@ export default function PortfolioView() {
       setStocksMap(map);
 
       setIsAddDialogOpen(false);
-      toast.success(`Added ${data.shares} shares of ${data.ticker.toUpperCase()}`);
+      toast({ title: `Added ${data.shares} shares of ${data.ticker.toUpperCase()}`, variant: "success", duration: 3000 });
     } catch (error) {
       console.error("Error adding position:", error);
-      toast.error(error.message || "Failed to add position");
+      toast({ title: error.message || "Failed to add position", variant: "destructive", duration: 3000 });
       throw error;
     }
   };
@@ -502,10 +502,10 @@ export default function PortfolioView() {
     try {
       const updated = await Portfolio.update(id, data);
       setPositions(prev => prev.map(p => p.id === id ? updated : p));
-      toast.success("Position updated");
+      toast({ title: "Position updated", variant: "success", duration: 3000 });
     } catch (error) {
       console.error("Error updating position:", error);
-      toast.error("Failed to update position");
+      toast({ title: "Failed to update position", variant: "destructive", duration: 3000 });
     }
   };
 
@@ -513,10 +513,10 @@ export default function PortfolioView() {
     try {
       await Portfolio.delete(id);
       setPositions(prev => prev.filter(p => p.id !== id));
-      toast.success("Position removed");
+      toast({ title: "Position removed", variant: "success", duration: 3000 });
     } catch (error) {
       console.error("Error deleting position:", error);
-      toast.error("Failed to remove position");
+      toast({ title: "Failed to remove position", variant: "destructive", duration: 3000 });
     }
   };
 
@@ -551,10 +551,10 @@ export default function PortfolioView() {
       } else {
         await cancelOpenOrder(orderId);
       }
-      toast.success('Order cancelled');
+      toast({ title: "Order cancelled", variant: "success", duration: 3000 });
       loadEtoroPortfolio(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to cancel order');
+      toast({ title: err.message || "Failed to cancel order", variant: "destructive", duration: 3000 });
     }
   };
 

@@ -14,9 +14,10 @@ import BuyButton from "../components/trading/BuyButton";
 import StockLogo from "../components/StockLogo";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, PieChart, CheckCircle } from "lucide-react";
+import { FileText, PieChart } from "lucide-react";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
 import { PageContainer, LoadingState } from "@/components/layout";
+import { toast } from "@/components/ui/use-toast";
 
 export default function Dashboard() {
   const searchParams = useSearchParams();
@@ -27,7 +28,6 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("input");
   const [currentUser, setCurrentUser] = useState(null);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [isInitialStocksLoading, setIsInitialStocksLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   
@@ -292,7 +292,7 @@ export default function Dashboard() {
     try {
       const user = await User.me();
       if (!user?.id) {
-        alert("Error: You must be logged in to save stock data.");
+        toast({ title: "You must be logged in to save stock data.", variant: "destructive", duration: 3000 });
         setIsLoading(false);
         return;
       }
@@ -340,16 +340,15 @@ export default function Dashboard() {
         setActiveTab("input");
       }
 
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+      toast({ title: "Stock data saved successfully!", variant: "success", duration: 3000 });
 
     } catch (error) {
       console.error("Error saving stock:", error);
       // Added a more specific error message for 429
       if (error.response && error.response.status === 429) {
-        alert("Too many requests. Please wait a moment and try again.");
+        toast({ title: "Too many requests", description: "Please wait a moment and try again.", variant: "destructive", duration: 4000 });
       } else {
-        alert("Error saving stock data. Please try again.");
+        toast({ title: "Error saving stock data", description: "Please try again.", variant: "destructive", duration: 3000 });
       }
     } finally {
       setIsLoading(false);
@@ -363,16 +362,6 @@ export default function Dashboard() {
         open={showOnboarding}
         onComplete={handleOnboardingComplete}
       />
-
-      {/* Success Toast */}
-      {showSuccessToast && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-300">
-          <div className="bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-2">
-            <CheckCircle className="h-5 w-5" />
-            <span className="font-medium">Stock data saved successfully!</span>
-          </div>
-        </div>
-      )}
 
       <div>
         {/* Search Bar */}

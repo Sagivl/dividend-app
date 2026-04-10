@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PageContainer, PageHeader } from '@/components/layout';
 import { UserSettings } from '@/entities/UserSettings';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/use-toast';
 
 export default function SettingsView() {
   const [apiKey, setApiKey] = useState('');
@@ -106,7 +106,7 @@ export default function SettingsView() {
     const trimmedApiKey = apiKey.trim();
     const trimmedUserKey = userKey.trim();
     if (!trimmedApiKey || !trimmedUserKey) {
-      toast.error('Please enter both your eToro Public API Key and User Key');
+      toast({ title: 'Please enter both your eToro Public API Key and User Key', variant: 'destructive', duration: 3000 });
       return;
     }
 
@@ -122,7 +122,7 @@ export default function SettingsView() {
       setUserKey('');
       setShowApiKey(false);
       setShowKey(false);
-      toast.success('eToro account connected');
+      toast({ title: 'eToro account connected', variant: 'success', duration: 3000 });
     }
   };
 
@@ -136,7 +136,7 @@ export default function SettingsView() {
     setApiKey('');
     setUserKey('');
     setTestResult(null);
-    toast.success('eToro account disconnected');
+    toast({ title: 'eToro account disconnected', variant: 'success', duration: 3000 });
   };
 
   if (isLoading) {

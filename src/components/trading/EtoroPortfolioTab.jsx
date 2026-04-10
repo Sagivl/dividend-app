@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import { Portfolio } from '@/entities/Portfolio';
 import TradeDialog from './TradeDialog';
 import { etoroFetch } from '@/functions/etoroFetch';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/use-toast';
 
 function formatCurrency(value) {
   if (value == null) return '—';
@@ -201,10 +201,10 @@ export default function EtoroPortfolioTab({ stocksMap = {} }) {
   const handleCancelOrder = async (orderId) => {
     try {
       await cancelOpenOrder(orderId);
-      toast.success('Order cancelled');
+      toast({ title: "Order cancelled", variant: "success", duration: 3000 });
       loadPortfolio(true);
     } catch (err) {
-      toast.error(err.message || 'Failed to cancel order');
+      toast({ title: err.message || "Failed to cancel order", variant: "destructive", duration: 3000 });
     }
   };
 
