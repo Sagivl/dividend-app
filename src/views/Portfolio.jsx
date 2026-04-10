@@ -588,10 +588,10 @@ export default function PortfolioView() {
             <p className="text-xs font-medium">Connect eToro to sync your portfolio</p>
           </div>
           <Link
-            href="/Settings"
+            href="/Account"
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 text-[11px] font-medium transition-colors shrink-0"
           >
-            Settings
+            Connect
             <ArrowRight className="h-3 w-3" />
           </Link>
         </div>

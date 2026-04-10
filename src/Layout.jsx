@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
-import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, BarChart2, Wallet, Settings, LogOut, User, MoreHorizontal, ChevronRight } from "lucide-react";
+import { TrendingUp, Search, Star, HelpCircle, AlertCircle as LucideAlertCircleIcon, BarChart2, Wallet, CircleUser, LogOut, User, MoreHorizontal, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +31,7 @@ export default function Layout({ children, currentPageName }) {
   const [navItems, setNavItems] = useState([]);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const howItWorksFromMore = React.useRef(false);
 
   const handleLogout = async () => {
     await logout();
@@ -124,9 +125,9 @@ export default function Layout({ children, currentPageName }) {
                       <HelpCircle className="mr-2 h-4 w-4" />
                       How it Works
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push(createPageUrl("Settings"))} className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
+                    <DropdownMenuItem onClick={() => router.push(createPageUrl("Account"))} className="cursor-pointer">
+                      <CircleUser className="mr-2 h-4 w-4" />
+                      Account
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:text-red-400 cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
@@ -169,7 +170,7 @@ export default function Layout({ children, currentPageName }) {
 
             <div className="space-y-1">
               <button
-                onClick={() => { setMoreSheetOpen(false); setHowItWorksOpen(true); }}
+                onClick={() => { howItWorksFromMore.current = true; setMoreSheetOpen(false); setHowItWorksOpen(true); }}
                 className="flex items-center w-full px-4 py-3.5 rounded-xl text-foreground hover:bg-accent active:bg-accent/80 transition-colors"
               >
                 <HelpCircle className="h-5 w-5 mr-3 text-muted-foreground" />
@@ -177,11 +178,11 @@ export default function Layout({ children, currentPageName }) {
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
               <button
-                onClick={() => { setMoreSheetOpen(false); router.push(createPageUrl("Settings")); }}
+                onClick={() => { setMoreSheetOpen(false); router.push(createPageUrl("Account")); }}
                 className="flex items-center w-full px-4 py-3.5 rounded-xl text-foreground hover:bg-accent active:bg-accent/80 transition-colors"
               >
-                <Settings className="h-5 w-5 mr-3 text-muted-foreground" />
-                <span className="flex-1 text-left">Settings</span>
+                <CircleUser className="h-5 w-5 mr-3 text-muted-foreground" />
+                <span className="flex-1 text-left">Account</span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
               <button
@@ -225,13 +226,13 @@ export default function Layout({ children, currentPageName }) {
               <button
                 onClick={() => setMoreSheetOpen(!moreSheetOpen)}
                 className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset relative ${
-                  moreSheetOpen || currentPageName === "Settings"
+                  moreSheetOpen || currentPageName === "Account"
                     ? "text-primary"
                     : "text-muted-foreground hover:text-primary/80"
                 }`}
               >
                 <MoreHorizontal className="h-6 w-6 mb-0.5" />
-                <span className={`text-[10px] font-medium tracking-tight ${moreSheetOpen || currentPageName === "Settings" ? "text-primary" : "text-muted-foreground"}`}>
+                <span className={`text-[10px] font-medium tracking-tight ${moreSheetOpen || currentPageName === "Account" ? "text-primary" : "text-muted-foreground"}`}>
                   More
                 </span>
               </button>
@@ -240,7 +241,13 @@ export default function Layout({ children, currentPageName }) {
 
       <div className="sm:hidden h-16"></div>
 
-      <Dialog open={howItWorksOpen} onOpenChange={setHowItWorksOpen}>
+      <Dialog open={howItWorksOpen} onOpenChange={(open) => {
+        setHowItWorksOpen(open);
+        if (!open && howItWorksFromMore.current) {
+          howItWorksFromMore.current = false;
+          setMoreSheetOpen(true);
+        }
+      }}>
         <DialogContent className="w-full h-[100dvh] max-w-full max-h-full rounded-none sm:w-auto sm:h-auto sm:max-w-xl md:max-w-2xl sm:rounded-lg sm:max-h-[85vh] bg-card border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl text-foreground">How it Works</DialogTitle>

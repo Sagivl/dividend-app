@@ -60,6 +60,19 @@ function useMediaQuery(query) {
   return matches;
 }
 
+function useVisualViewportHeight() {
+  const [height, setHeight] = useState(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setHeight(vv.height);
+    update();
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
+  }, []);
+  return height;
+}
+
 function TradeForm({
   mode,
   instrumentId,
@@ -323,7 +336,7 @@ function TradeForm({
                       setError('');
                     }}
                     className="pl-9 h-12 text-base"
-                    autoFocus
+                    autoFocus={!isDrawer}
                   />
                 </div>
                 {estimatedUnits && (
@@ -346,7 +359,7 @@ function TradeForm({
                     setError('');
                   }}
                   className="h-12 text-base"
-                  autoFocus
+                  autoFocus={!isDrawer}
                 />
                 {estimatedCost && (
                   <p className="text-sm text-muted-foreground">
@@ -385,7 +398,7 @@ function TradeForm({
                     setError('');
                   }}
                   className="h-12 text-base"
-                  autoFocus
+                  autoFocus={!isDrawer}
                 />
                 {closeUnits && currentPrice && (
                   <p className="text-sm text-muted-foreground">
@@ -545,6 +558,11 @@ export default function TradeDialog({
     onSellSuccess,
   };
 
+  const viewportHeight = useVisualViewportHeight();
+  const drawerMaxHeight = viewportHeight
+    ? `${Math.min(viewportHeight * 0.9, viewportHeight - 40)}px`
+    : '90dvh';
+
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -561,12 +579,15 @@ export default function TradeDialog({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="text-left pb-2">
+      <DrawerContent
+        className="max-h-[90dvh]"
+        style={viewportHeight ? { maxHeight: drawerMaxHeight } : undefined}
+      >
+        <DrawerHeader className="text-left pb-2 shrink-0">
           <DrawerTitle className="text-xl">{title}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
-        <div className="px-4 pb-6 overflow-y-auto">
+        <div className="px-4 pb-6 overflow-y-auto flex-1 min-h-0">
           <TradeForm {...formProps} isDrawer />
         </div>
       </DrawerContent>

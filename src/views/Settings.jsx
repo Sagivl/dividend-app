@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings as SettingsIcon, Link2, Unlink, Eye, EyeOff, CheckCircle2, XCircle, Loader2, ExternalLink, Shield, AlertTriangle } from 'lucide-react';
+import { CircleUser, Link2, Unlink, Eye, EyeOff, CheckCircle2, XCircle, Loader2, ExternalLink, Shield, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -151,7 +151,7 @@ export default function SettingsView() {
 
   return (
     <PageContainer maxWidth="2xl" bottomPadding>
-      <PageHeader title="Settings" icon={SettingsIcon} />
+      <PageHeader title="Account" icon={CircleUser} />
 
       <div className="space-y-6 mt-6">
         <Card className="bg-card border-border">
