@@ -103,15 +103,18 @@ export default function Layout({ children, currentPageName }) {
             </div>
             
             <div className="flex items-center space-x-1 lg:space-x-2">
-              <Button
-                variant="ghost"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent h-9 px-2.5 lg:px-3"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSearchOpen(true); }}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground active:text-foreground hover:bg-accent active:bg-accent h-10 min-w-[44px] px-3 lg:px-3 rounded-md transition-colors cursor-pointer select-none"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <Search className="h-4 w-4" />
+                <Search className="h-5 w-5 sm:h-4 sm:w-4" />
                 <span className="hidden lg:inline text-sm">Search</span>
                 <kbd className="hidden lg:inline-flex items-center text-[10px] text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
-              </Button>
+              </div>
               <nav className="hidden sm:flex space-x-1 lg:space-x-2">
                 {navItems.filter(item => item.name !== 'Dashboard').map((item) => {
                   const Icon = item.icon;
@@ -230,11 +233,11 @@ export default function Layout({ children, currentPageName }) {
 
                   if (item.name === 'Dashboard') {
                     return (
-                      <button
+                      <a
                         key={item.name + "-mobile"}
-                        onClick={() => { setMoreSheetOpen(false); setSearchOpen(true); }}
+                        href="/"
                         title={item.description}
-                        className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset relative ${
+                        className={`flex flex-col items-center justify-center flex-1 py-2 px-1 no-underline transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset relative ${
                             isActive
                               ? "text-primary"
                               : "text-muted-foreground hover:text-primary/80"
@@ -244,7 +247,7 @@ export default function Layout({ children, currentPageName }) {
                         <span className={`text-[10px] font-medium tracking-tight ${isActive ? "text-primary" : "text-muted-foreground"}`}>
                           {item.displayName || item.name}
                         </span>
-                      </button>
+                      </a>
                     );
                   }
 

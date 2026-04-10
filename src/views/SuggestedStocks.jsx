@@ -355,10 +355,10 @@ export default function SuggestedStocks() {
           </div>
         ) : (
           <div className="w-full">
-            <div className="sticky top-12 sm:top-16 bg-slate-900/95 backdrop-blur-sm z-10 border-b border-slate-700 py-2 px-3 sm:py-3 sm:px-4">
+            <div className="sticky top-12 sm:top-16 bg-slate-900/95 backdrop-blur-sm z-10 border-b border-slate-700 pt-0 pb-1.5 px-3 sm:py-3 sm:px-4">
               {/* Desktop: Title & Description in Sticky Bar */}
               <div className="hidden sm:flex sm:items-center sm:gap-2.5">
-                {CurrentFilterIcon && <CurrentFilterIcon className="h-5 w-5 text-green-400 flex-shrink-0" />} {/* Icon color */}
+                {CurrentFilterIcon && <CurrentFilterIcon className="h-5 w-5 text-green-400 flex-shrink-0" />}
                 <div>
                   <h2 className="text-md sm:text-lg font-semibold text-slate-100">{selectedFilterOption.label}</h2>
                   {selectedFilterOption.description && <p className="text-2xs sm:text-xs text-slate-300">{selectedFilterOption.description}</p>}
@@ -366,7 +366,7 @@ export default function SuggestedStocks() {
               </div>
 
               {/* Mobile: Filter Dropdown in Sticky Bar */}
-              <div className="block sm:hidden max-w-xs mx-auto sm:max-w-sm">
+              <div className="block sm:hidden px-1">
                 <FilterSelectComponent
                   activeTab={activeTab}
                   setActiveTab={setActiveTab}
@@ -375,7 +375,7 @@ export default function SuggestedStocks() {
               </div>
             </div>
             
-            <div className="px-3 sm:px-4 pt-4 sm:pt-6">
+            <div className="px-3 sm:px-4 pt-2 sm:pt-6">
               {/* Desktop: Filter Dropdown in Main Content */}
               <div className="hidden sm:block max-w-xs mb-6 sm:max-w-sm">
                 <FilterSelectComponent

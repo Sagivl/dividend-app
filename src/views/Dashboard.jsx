@@ -13,7 +13,7 @@ import BuyButton from "../components/trading/BuyButton";
 import StockLogo from "../components/StockLogo";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, PieChart, Sparkles, Loader2, ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import { Sparkles, Loader2, ChevronDown, ChevronUp, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
@@ -445,133 +445,69 @@ export default function Dashboard() {
             className="-mt-1"
           >
             {/* Sticky Stock Header + Tabs */}
-            <div className="sticky top-12 sm:top-16 z-30 bg-slate-900/95 backdrop-blur-md px-3 sm:px-6 pb-3 pt-2 border-b border-slate-700/50">
+            <div className="sticky top-12 sm:top-16 z-30 bg-slate-900/95 backdrop-blur-md px-3 sm:px-6 pb-2 pt-2 border-b border-slate-700/50">
               {selectedStock.ticker && (
-                <div className="flex items-center gap-3 mb-3">
-                  <StockLogo stock={selectedStock} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h2 className="text-base sm:text-lg font-bold text-slate-100 truncate">
-                        {selectedStock.ticker.toUpperCase()}
-                      </h2>
-                      {selectedStock.exchange && (
-                        <span className="text-xs text-slate-400">({selectedStock.exchange})</span>
+                <div className="space-y-1.5 mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <StockLogo stock={selectedStock} size="md" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h2 className="text-base font-bold text-slate-100">
+                          {selectedStock.ticker.toUpperCase()}
+                        </h2>
+                        {selectedStock.exchange && (
+                          <span className="text-[11px] text-slate-500">({selectedStock.exchange})</span>
+                        )}
+                        <WatchlistButton ticker={selectedStock.ticker} size="sm" />
+                      </div>
+                      {selectedStock.name && (
+                        <p className="text-[11px] text-slate-400 truncate max-w-[200px] sm:max-w-none">{selectedStock.name}</p>
                       )}
-                      <WatchlistButton ticker={selectedStock.ticker} size="sm" />
                     </div>
-                    {selectedStock.name && (
-                      <p className="text-xs sm:text-sm text-slate-400 truncate">{selectedStock.name}</p>
-                    )}
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    {selectedStock.price && (
-                      <span className="text-lg sm:text-xl font-bold text-green-400">
+                  <div className="flex items-center justify-between">
+                    {selectedStock.price ? (
+                      <span className="text-xl font-bold text-green-400">
                         ${parseFloat(selectedStock.price).toFixed(2)}
                       </span>
-                    )}
-                    {activeTab === "analysis" && (
-                      <Button
-                        onClick={handleExplainStock}
-                        disabled={isExplaining}
-                        variant="outline"
-                        size="sm"
-                        className="bg-slate-700/50 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white transition-colors text-xs"
-                      >
-                        {isExplaining ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-400" />
-                        )}
-                        <span className="hidden sm:inline">Explain</span>
-                        {aiExplanation && (
-                          showExplanation
-                            ? <ChevronUp className="ml-1 h-3.5 w-3.5" />
-                            : <ChevronDown className="ml-1 h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                    )}
-                    <BuyButton stock={selectedStock} size="md" />
+                    ) : <span />}
+                    <div className="flex items-center gap-2">
+                      {activeTab === "analysis" && (
+                        <button
+                          onClick={handleExplainStock}
+                          disabled={isExplaining}
+                          className="h-9 px-3 flex items-center gap-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-xs"
+                        >
+                          {isExplaining ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
+                          ) : (
+                            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                          )}
+                          <span className="hidden sm:inline">{aiExplanation ? (showExplanation ? "Hide" : "Explain") : "Explain"}</span>
+                        </button>
+                      )}
+                      <BuyButton stock={selectedStock} size="md" />
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="flex justify-center">
-                <TabsList className="bg-slate-800 rounded-lg flex w-full sm:w-auto border border-slate-700">
+              <div className="flex">
+                <TabsList className="bg-transparent rounded-none flex w-full border-b-0 p-0 h-auto">
                   <TabsTrigger 
                     value="input" 
-                    className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+                    className="flex-1 py-2 text-sm font-medium rounded-none border-b-2 transition-colors focus-visible:outline-none data-[state=active]:border-green-500 data-[state=active]:text-green-400 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=inactive]:border-transparent data-[state=inactive]:text-slate-400 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:text-slate-200"
                   >
-                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>Stats</span>
+                    Stats
                   </TabsTrigger>
                   <TabsTrigger 
                     value="analysis" 
-                    className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3FB923] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 data-[state=active]:bg-[#3FB923] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:hover:bg-green-600 data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-300 data-[state=inactive]:hover:bg-slate-700 data-[state=inactive]:hover:text-slate-200"
+                    className="flex-1 py-2 text-sm font-medium rounded-none border-b-2 transition-colors focus-visible:outline-none data-[state=active]:border-green-500 data-[state=active]:text-green-400 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=inactive]:border-transparent data-[state=inactive]:text-slate-400 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:text-slate-200"
                   >
-                    <PieChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>Analysis</span>
+                    Analysis
                   </TabsTrigger>
                 </TabsList>
               </div>
-
-              {showExplanation && activeTab === "analysis" && (
-                <div className="mt-3 pt-3 border-t border-slate-700/50 max-h-[40vh] overflow-y-auto">
-                  {isExplaining ? (
-                    <div className="flex items-center justify-center gap-2 py-4">
-                      <Loader2 className="h-5 w-5 animate-spin text-amber-400" />
-                      <span className="text-sm text-slate-400">Analyzing {selectedStock.ticker}...</span>
-                    </div>
-                  ) : aiExplanation ? (
-                    <div className="space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                        <div className="flex items-center gap-2 shrink-0">
-                          {aiExplanation.score != null && (
-                            <div className={`text-lg font-bold px-2.5 py-1 rounded-lg border ${getScoreColor(aiExplanation.score)}`}>
-                              {aiExplanation.score}<span className="text-xs font-normal opacity-70">/100</span>
-                            </div>
-                          )}
-                          <Badge className={`text-sm px-3 py-1 border ${verdictConfig[aiExplanation.verdict]?.color || "bg-slate-700 text-slate-300 border-slate-600"}`}>
-                            {aiExplanation.verdict}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-300 leading-relaxed">{aiExplanation.summary}</p>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <h5 className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-1.5">Strengths</h5>
-                          <ul className="space-y-1">
-                            {aiExplanation.key_strengths?.map((s, i) => (
-                              <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                                <Check className="h-3.5 w-3.5 text-green-400 mt-0.5 shrink-0" />
-                                {s}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h5 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-1.5">Risks</h5>
-                          <ul className="space-y-1">
-                            {aiExplanation.key_risks?.map((r, i) => (
-                              <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                                <X className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
-                                {r}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-
-                      {aiExplanation.dividend_outlook && (
-                        <div className="pt-2 border-t border-slate-700/30">
-                          <h5 className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-1">Dividend Outlook</h5>
-                          <p className="text-sm text-slate-300">{aiExplanation.dividend_outlook}</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
             </div>
             
             <TabsContent value="input" className="mt-3 px-3 sm:px-6">
@@ -582,7 +518,64 @@ export default function Dashboard() {
               />
             </TabsContent>
             
-            <TabsContent value="analysis" className="focus:outline-none mt-3 px-3 sm:px-6">
+            <TabsContent value="analysis" className="focus:outline-none mt-0 px-3 sm:px-6">
+              {showExplanation && (
+                <div className="mb-4 rounded-lg bg-slate-800/60 border border-slate-700/50 p-3 space-y-3">
+                  {isExplaining ? (
+                    <div className="flex items-center justify-center gap-2 py-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-amber-400" />
+                      <span className="text-sm text-slate-400">Analyzing {selectedStock.ticker}...</span>
+                    </div>
+                  ) : aiExplanation ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        {aiExplanation.score != null && (
+                          <div className={`text-base font-bold px-2 py-0.5 rounded-md border ${getScoreColor(aiExplanation.score)}`}>
+                            {aiExplanation.score}<span className="text-[10px] font-normal opacity-70">/100</span>
+                          </div>
+                        )}
+                        <Badge className={`text-xs px-2 py-0.5 border ${verdictConfig[aiExplanation.verdict]?.color || "bg-slate-700 text-slate-300 border-slate-600"}`}>
+                          {aiExplanation.verdict}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-300 leading-relaxed">{aiExplanation.summary}</p>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <h5 className="text-[10px] font-semibold text-green-400 uppercase tracking-wide mb-1">Strengths</h5>
+                          <ul className="space-y-0.5">
+                            {aiExplanation.key_strengths?.map((s, i) => (
+                              <li key={i} className="flex items-start gap-1.5 text-xs text-slate-300">
+                                <Check className="h-3 w-3 text-green-400 mt-0.5 shrink-0" />
+                                {s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h5 className="text-[10px] font-semibold text-red-400 uppercase tracking-wide mb-1">Risks</h5>
+                          <ul className="space-y-0.5">
+                            {aiExplanation.key_risks?.map((r, i) => (
+                              <li key={i} className="flex items-start gap-1.5 text-xs text-slate-300">
+                                <X className="h-3 w-3 text-red-400 mt-0.5 shrink-0" />
+                                {r}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {aiExplanation.dividend_outlook && (
+                        <div className="pt-2 border-t border-slate-700/30">
+                          <h5 className="text-[10px] font-semibold text-amber-400 uppercase tracking-wide mb-0.5">Dividend Outlook</h5>
+                          <p className="text-xs text-slate-300">{aiExplanation.dividend_outlook}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              )}
+
               <StockAnalysis stock={selectedStock} />
             </TabsContent>
           </Tabs>
