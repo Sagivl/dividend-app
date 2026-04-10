@@ -1,11 +1,8 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Info, AlertCircle as LucideAlertCircle,
   TrendingUp, Clock, Scale, Calendar, CalendarCheck,
-  Sparkles, Loader2, Check, X, ChevronDown, ChevronUp
 } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import NewsSentiment from "./NewsSentiment";
@@ -13,7 +10,6 @@ import AnalystRecommendations from "./AnalystRecommendations";
 import FinancialCharts from "./FinancialCharts";
 import MetricHealthBadge from "./MetricHealthBadge";
 import { getMetricHealth, healthTextClass, metricGlossary } from "@/config/metricHealthConfig";
-import { generateStockExplanation } from "@/functions/aiAnalysis";
 
 const formatDividendDate = (dateStr) => {
   if (!dateStr) return null;
@@ -177,33 +173,7 @@ const AnalysisCardPlaceholder = ({ cardTitle, missingFields }) => (
   </Card>
 );
 
-const verdictConfig = {
-  Buy:   { color: "bg-green-900/50 text-green-300 border-green-700" },
-  Hold:  { color: "bg-amber-900/50 text-amber-300 border-amber-700" },
-  Watch: { color: "bg-blue-900/50 text-blue-300 border-blue-700" },
-};
-
 const StockAnalysis = ({ stock }) => {
-  const [aiExplanation, setAiExplanation] = useState(null);
-  const [isExplaining, setIsExplaining] = useState(false);
-  const [showExplanation, setShowExplanation] = useState(false);
-
-  const handleExplainStock = useCallback(async () => {
-    if (aiExplanation) {
-      setShowExplanation((v) => !v);
-      return;
-    }
-    setIsExplaining(true);
-    setShowExplanation(true);
-    try {
-      const result = await generateStockExplanation(stock);
-      setAiExplanation(result);
-    } catch (err) {
-      console.error("[Explain] failed:", err);
-    } finally {
-      setIsExplaining(false);
-    }
-  }, [stock, aiExplanation]);
 
   // Helper function to check if a field has a valid value
   const hasValue = (field) => {
@@ -327,86 +297,6 @@ const StockAnalysis = ({ stock }) => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Explain This Stock */}
-      <div className="flex justify-end">
-        <Button
-          onClick={handleExplainStock}
-          disabled={isExplaining}
-          variant="outline"
-          size="sm"
-          className="bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-colors text-xs"
-        >
-          {isExplaining ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-400" />
-          )}
-          Explain
-          {aiExplanation && (
-            showExplanation
-              ? <ChevronUp className="ml-1 h-3.5 w-3.5" />
-              : <ChevronDown className="ml-1 h-3.5 w-3.5" />
-          )}
-        </Button>
-      </div>
-
-      {showExplanation && (
-        <Card className="bg-gradient-to-br from-slate-800 to-slate-800/80 border border-amber-700/30">
-          <CardContent className="pt-5 pb-5">
-            {isExplaining ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
-                <p className="text-sm text-slate-400">Analyzing {stock.ticker}...</p>
-              </div>
-            ) : aiExplanation ? (
-              <div className="space-y-4">
-                {/* Summary + Verdict */}
-                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                  <Badge className={`shrink-0 text-sm px-3 py-1 border ${verdictConfig[aiExplanation.verdict]?.color || "bg-slate-700 text-slate-300 border-slate-600"}`}>
-                    {aiExplanation.verdict}
-                  </Badge>
-                  <p className="text-sm text-slate-300 leading-relaxed">{aiExplanation.summary}</p>
-                </div>
-
-                {/* Strengths & Risks */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <h5 className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">Strengths</h5>
-                    <ul className="space-y-1.5">
-                      {aiExplanation.key_strengths?.map((s, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                          <Check className="h-3.5 w-3.5 text-green-400 mt-0.5 shrink-0" />
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-2">Risks</h5>
-                    <ul className="space-y-1.5">
-                      {aiExplanation.key_risks?.map((r, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                          <X className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
-                          {r}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Dividend Outlook */}
-                {aiExplanation.dividend_outlook && (
-                  <div className="pt-3 border-t border-slate-700">
-                    <h5 className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-1.5">Dividend Outlook</h5>
-                    <p className="text-sm text-slate-300">{aiExplanation.dividend_outlook}</p>
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Main Analysis Grid */}
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         {/* First column */}

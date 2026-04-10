@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPageUrl } from "@/utils";
@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/AuthContext";
+import GlobalSearchDialog from "@/components/GlobalSearchDialog";
 
 
 export default function Layout({ children, currentPageName }) {
@@ -31,12 +32,27 @@ export default function Layout({ children, currentPageName }) {
   const [navItems, setNavItems] = useState([]);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const howItWorksFromMore = React.useRef(false);
 
   const handleLogout = async () => {
     await logout();
     router.push("/login");
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [searchOpen]);
 
   useEffect(() => {
     setNavItems([
@@ -87,8 +103,17 @@ export default function Layout({ children, currentPageName }) {
             </div>
             
             <div className="flex items-center space-x-1 lg:space-x-2">
+              <Button
+                variant="ghost"
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent h-9 px-2.5 lg:px-3"
+              >
+                <Search className="h-4 w-4" />
+                <span className="hidden lg:inline text-sm">Search</span>
+                <kbd className="hidden lg:inline-flex items-center text-[10px] text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
+              </Button>
               <nav className="hidden sm:flex space-x-1 lg:space-x-2">
-                {navItems.map((item) => {
+                {navItems.filter(item => item.name !== 'Dashboard').map((item) => {
                   const Icon = item.icon;
                   const isActive = currentPageName === item.name;
                   
@@ -141,7 +166,7 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col relative overflow-hidden">
+      <div className="flex-1 flex flex-col relative overflow-hidden sm:overflow-visible">
         <main
           className={`flex-1 flex flex-col bg-background transition-all duration-300 ease-in-out ${
             moreSheetOpen ? "sm:flex hidden" : "flex"
@@ -202,6 +227,27 @@ export default function Layout({ children, currentPageName }) {
               {navItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentPageName === item.name && !moreSheetOpen;
+
+                  if (item.name === 'Dashboard') {
+                    return (
+                      <button
+                        key={item.name + "-mobile"}
+                        onClick={() => { setMoreSheetOpen(false); setSearchOpen(true); }}
+                        title={item.description}
+                        className={`flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset relative ${
+                            isActive
+                              ? "text-primary"
+                              : "text-muted-foreground hover:text-primary/80"
+                        }`}
+                      >
+                        <Icon className="h-6 w-6 mb-0.5" />
+                        <span className={`text-[10px] font-medium tracking-tight ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                          {item.displayName || item.name}
+                        </span>
+                      </button>
+                    );
+                  }
+
                   return (
                       <Link
                           key={item.name + "-mobile"}
@@ -214,7 +260,7 @@ export default function Layout({ children, currentPageName }) {
                                 : "text-muted-foreground hover:text-primary/80"
                           }`}
                       >
-                          <Icon className={`h-6 w-6 mb-0.5`} />
+                          <Icon className="h-6 w-6 mb-0.5" />
                           <span 
                             className={`text-[10px] font-medium tracking-tight ${isActive ? "text-primary" : "text-muted-foreground"}`}
                           >
@@ -240,6 +286,8 @@ export default function Layout({ children, currentPageName }) {
       </nav>
 
       <div className="sm:hidden h-16"></div>
+
+      <GlobalSearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       <Dialog open={howItWorksOpen} onOpenChange={(open) => {
         setHowItWorksOpen(open);

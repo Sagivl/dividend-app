@@ -320,6 +320,7 @@ Provide your analysis covering:
 3. 2-4 key strengths (short bullet points).
 4. 1-3 key risks (short bullet points).
 5. A 1-2 sentence dividend outlook on whether the dividend looks sustainable and likely to grow.
+6. A dividend quality score from 0 to 100, considering yield, growth, payout sustainability, financial strength, and track record.
 
 Be honest and balanced. If data is missing, note that but still give your best assessment.`;
 
@@ -328,11 +329,12 @@ Be honest and balanced. If data is missing, note that but still give your best a
     properties: {
       summary: { type: "string" },
       verdict: { type: "string", enum: ["Buy", "Hold", "Watch"] },
+      score: { type: "number" },
       key_strengths: { type: "array", items: { type: "string" } },
       key_risks: { type: "array", items: { type: "string" } },
       dividend_outlook: { type: "string" }
     },
-    required: ["summary", "verdict", "key_strengths", "key_risks", "dividend_outlook"]
+    required: ["summary", "verdict", "score", "key_strengths", "key_risks", "dividend_outlook"]
   };
 
   if (hasOpenAIKey()) {
@@ -375,6 +377,7 @@ Be honest and balanced. If data is missing, note that but still give your best a
   return {
     summary,
     verdict,
+    score,
     key_strengths: strengths.length > 0 ? strengths.slice(0, 4) : ['Insufficient data for detailed strength assessment'],
     key_risks: weaknesses.length > 0 ? weaknesses.slice(0, 3) : ['More data needed for complete risk evaluation'],
     dividend_outlook: dividendOutlook,

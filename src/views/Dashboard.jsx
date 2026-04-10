@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Stock, mergeFetchedStockForDisplay } from "@/entities/Stock";
 import { User } from "@/entities/User";
-import StockSearch from "../components/StockSearch";
 import StockDataInput from "../components/StockDataInput";
 import StockAnalysis from "../components/StockAnalysis";
 import SuggestedAssets from "../components/SuggestedAssets";
@@ -14,10 +13,25 @@ import BuyButton from "../components/trading/BuyButton";
 import StockLogo from "../components/StockLogo";
 import { getPersonalizedConfig } from "../components/configure/ConfigurationDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, PieChart } from "lucide-react";
+import { FileText, PieChart, Sparkles, Loader2, ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { fetchHybridStockData } from "../functions/hybridDataFetcher";
+import { generateStockExplanation } from "../functions/aiAnalysis";
 import { PageContainer, LoadingState } from "@/components/layout";
 import { toast } from "@/components/ui/use-toast";
+
+const verdictConfig = {
+  Buy:   { color: "bg-green-900/50 text-green-300 border-green-700" },
+  Hold:  { color: "bg-amber-900/50 text-amber-300 border-amber-700" },
+  Watch: { color: "bg-blue-900/50 text-blue-300 border-blue-700" },
+};
+
+const getScoreColor = (score) => {
+  if (score >= 80) return "text-green-400 bg-green-400/10 border-green-500/30";
+  if (score >= 60) return "text-amber-400 bg-amber-400/10 border-amber-500/30";
+  return "text-red-400 bg-red-400/10 border-red-500/30";
+};
 
 export default function Dashboard() {
   const searchParams = useSearchParams();
@@ -30,6 +44,10 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isInitialStocksLoading, setIsInitialStocksLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  const [aiExplanation, setAiExplanation] = useState(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
   
   // Simple ref to prevent duplicate requests
   const isLoadingStocks = useRef(false);
@@ -355,8 +373,32 @@ export default function Dashboard() {
     }
   };
 
+  const handleExplainStock = useCallback(async () => {
+    if (aiExplanation) {
+      setShowExplanation((v) => !v);
+      return;
+    }
+    setIsExplaining(true);
+    setShowExplanation(true);
+    try {
+      const result = await generateStockExplanation(selectedStock);
+      setAiExplanation(result);
+    } catch (err) {
+      console.error("[Explain] failed:", err);
+    } finally {
+      setIsExplaining(false);
+    }
+  }, [selectedStock, aiExplanation]);
+
+  // Reset explain state when selected stock changes
+  useEffect(() => {
+    setAiExplanation(null);
+    setIsExplaining(false);
+    setShowExplanation(false);
+  }, [selectedStock?.ticker]);
+
   return (
-    <PageContainer>
+    <PageContainer noPadding={!!selectedStock}>
       {/* Onboarding Modal */}
       <OnboardingModal
         open={showOnboarding}
@@ -364,16 +406,6 @@ export default function Dashboard() {
       />
 
       <div>
-        {/* Search Bar */}
-        <div className="mb-6 sm:mb-8 max-w-3xl mx-auto px-2 sm:px-0">
-          <StockSearch 
-            onSearch={handleSearch}
-            isLoading={isLoading || isInitialStocksLoading}
-            setIsLoading={setIsLoading}
-            stocks={stocks}
-          />
-        </div>
-
         {/* Suggested Assets - Only when no stock selected */}
         {!selectedStock && !isLoading && !isInitialStocksLoading && (
           <div className="max-w-7xl mx-auto px-2 sm:px-0">
@@ -410,10 +442,10 @@ export default function Dashboard() {
               router.replace(`${pathname}?${urlParams.toString()}`);
               window.scrollTo(0, 0);
             }}
-            className="space-y-4"
+            className="-mt-1"
           >
             {/* Sticky Stock Header + Tabs */}
-            <div className="sticky top-12 sm:top-16 z-30 bg-slate-900/95 backdrop-blur-md -mx-3 sm:-mx-6 px-3 sm:px-6 pb-3 pt-3 border-b border-slate-700/50">
+            <div className="sticky top-12 sm:top-16 z-30 bg-slate-900/95 backdrop-blur-md px-3 sm:px-6 pb-3 pt-2 border-b border-slate-700/50">
               {selectedStock.ticker && (
                 <div className="flex items-center gap-3 mb-3">
                   <StockLogo stock={selectedStock} size="md" />
@@ -423,7 +455,7 @@ export default function Dashboard() {
                         {selectedStock.ticker.toUpperCase()}
                       </h2>
                       {selectedStock.exchange && (
-                        <span className="text-xs text-slate-400 hidden sm:inline">({selectedStock.exchange})</span>
+                        <span className="text-xs text-slate-400">({selectedStock.exchange})</span>
                       )}
                       <WatchlistButton ticker={selectedStock.ticker} size="sm" />
                     </div>
@@ -436,6 +468,27 @@ export default function Dashboard() {
                       <span className="text-lg sm:text-xl font-bold text-green-400">
                         ${parseFloat(selectedStock.price).toFixed(2)}
                       </span>
+                    )}
+                    {activeTab === "analysis" && (
+                      <Button
+                        onClick={handleExplainStock}
+                        disabled={isExplaining}
+                        variant="outline"
+                        size="sm"
+                        className="bg-slate-700/50 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white transition-colors text-xs"
+                      >
+                        {isExplaining ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-400" />
+                        )}
+                        <span className="hidden sm:inline">Explain</span>
+                        {aiExplanation && (
+                          showExplanation
+                            ? <ChevronUp className="ml-1 h-3.5 w-3.5" />
+                            : <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                        )}
+                      </Button>
                     )}
                     <BuyButton stock={selectedStock} size="md" />
                   </div>
@@ -460,9 +513,68 @@ export default function Dashboard() {
                   </TabsTrigger>
                 </TabsList>
               </div>
+
+              {showExplanation && activeTab === "analysis" && (
+                <div className="mt-3 pt-3 border-t border-slate-700/50 max-h-[40vh] overflow-y-auto">
+                  {isExplaining ? (
+                    <div className="flex items-center justify-center gap-2 py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-amber-400" />
+                      <span className="text-sm text-slate-400">Analyzing {selectedStock.ticker}...</span>
+                    </div>
+                  ) : aiExplanation ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                        <div className="flex items-center gap-2 shrink-0">
+                          {aiExplanation.score != null && (
+                            <div className={`text-lg font-bold px-2.5 py-1 rounded-lg border ${getScoreColor(aiExplanation.score)}`}>
+                              {aiExplanation.score}<span className="text-xs font-normal opacity-70">/100</span>
+                            </div>
+                          )}
+                          <Badge className={`text-sm px-3 py-1 border ${verdictConfig[aiExplanation.verdict]?.color || "bg-slate-700 text-slate-300 border-slate-600"}`}>
+                            {aiExplanation.verdict}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-300 leading-relaxed">{aiExplanation.summary}</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <h5 className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-1.5">Strengths</h5>
+                          <ul className="space-y-1">
+                            {aiExplanation.key_strengths?.map((s, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                                <Check className="h-3.5 w-3.5 text-green-400 mt-0.5 shrink-0" />
+                                {s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-1.5">Risks</h5>
+                          <ul className="space-y-1">
+                            {aiExplanation.key_risks?.map((r, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                                <X className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
+                                {r}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {aiExplanation.dividend_outlook && (
+                        <div className="pt-2 border-t border-slate-700/30">
+                          <h5 className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-1">Dividend Outlook</h5>
+                          <p className="text-sm text-slate-300">{aiExplanation.dividend_outlook}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
             
-            <TabsContent value="input">
+            <TabsContent value="input" className="mt-3 px-3 sm:px-6">
               <StockDataInput 
                 stock={selectedStock} 
                 onSave={handleSaveStock}
@@ -470,7 +582,7 @@ export default function Dashboard() {
               />
             </TabsContent>
             
-            <TabsContent value="analysis" className="focus:outline-none">
+            <TabsContent value="analysis" className="focus:outline-none mt-3 px-3 sm:px-6">
               <StockAnalysis stock={selectedStock} />
             </TabsContent>
           </Tabs>
